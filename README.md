@@ -57,7 +57,7 @@ Bootstrap creates a sudo-capable `ocadmin` user by default. Docker, OpenClaw, an
 ### 4. Optional: run non-interactively
 
 ```bash
-sudo bash bootstrap.sh -au openclaw -n YOUR_ZEROTIER_NETWORK_ID
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -au openclaw
 ```
 
 `--zerotier-network-id` is also accepted as a longer alias for `-n`.
@@ -86,25 +86,25 @@ sudo env ADMIN_PASSWORD_FILE=/root/ocadmin.password bash bootstrap.sh -n YOUR_ZE
 
 ### 5. Resume from a specific step
 
-If a run is interrupted, call `bootstrap.sh` again with `--from`:
+If a run is interrupted, call `bootstrap.sh` again with `-f, --from`:
 
 ```bash
-sudo bash bootstrap.sh -f docker
-sudo bash bootstrap.sh -f openclaw
-sudo bash bootstrap.sh -f proxy
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -f d
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -f oc
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -f p
 ```
 
 When resuming from `docker` or `openclaw`, bootstrap checks whether ZeroTier is connected. If no connected ZeroTier network is found, it asks for `-n` interactively and tries to join before continuing.
 
 Available steps:
 
-* `base` — system packages, firewall, fail2ban
-* `admin-user` — create a sudo-capable admin user, default `ocadmin`
-* `zerotier` — install ZeroTier and join the required network
-* `docker` — install Docker
-* `openclaw` — install OpenClaw
-* `proxy` — expose OpenClaw to ZeroTier peers through Caddy
-* `reboot-check` — check whether the VPS needs a reboot
+* `b`, `base` — system packages, firewall, fail2ban
+* `au`, `admin-user` — create a sudo-capable admin user, default `ocadmin`
+* `zt`, `zerotier` — install ZeroTier and join the required network
+* `d`, `docker` — install Docker
+* `oc`, `openclaw` — install OpenClaw
+* `p`, `proxy` — expose OpenClaw to ZeroTier peers through Caddy
+* `rc`, `reboot-check` — check whether the VPS needs a reboot
 
 Useful skip flags:
 
@@ -118,7 +118,7 @@ sudo bash bootstrap.sh -sp
 To lock the original sudo/bootstrap user after the `ocadmin` account is created successfully:
 
 ```bash
-sudo bash bootstrap.sh -lbu -n YOUR_ZEROTIER_NETWORK_ID
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -lbu
 ```
 
 ---

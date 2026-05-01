@@ -16,11 +16,12 @@ usage() {
 Usage: sudo bash bootstrap.sh [options]
 
 Options:
-  -f, --from STEP             Start from STEP and continue onward.
-                              Steps: base, admin-user, zerotier, docker, openclaw, proxy, reboot-check
-  -au, --admin-user USER      Admin sudo user to create. Default: ocadmin.
   -n, --zerotier-network-id ID
                               ZeroTier network ID to join.
+  -f, --from STEP             Start from STEP and continue onward.
+                              Steps: b/base, au/admin-user, zt/zerotier, d/docker,
+                                     oc/openclaw, p/proxy, rc/reboot-check.
+  -au, --admin-user USER      Admin sudo user to create. Default: ocadmin.
   -sau, --skip-admin-user     Skip admin user creation.
   -lbu, --lock-bootstrap-user Lock the original sudo user after admin user setup succeeds.
   -sd, --skip-docker          Skip Docker installation.
@@ -40,21 +41,21 @@ Environment:
 
 Examples:
   sudo bash bootstrap.sh -n 0123456789abcdef
-  sudo bash bootstrap.sh -au openclaw -n 0123456789abcdef
-  sudo bash bootstrap.sh -f docker
-  sudo bash bootstrap.sh -f proxy
+  sudo bash bootstrap.sh -n 0123456789abcdef -au openclaw
+  sudo bash bootstrap.sh -n 0123456789abcdef -f d
+  sudo bash bootstrap.sh -n 0123456789abcdef -f p
 EOF
 }
 
 step_number() {
   case "$1" in
-    base|bootstrap) echo 1 ;;
-    admin-user|admin|user) echo 2 ;;
-    zerotier|zt) echo 3 ;;
-    docker) echo 4 ;;
-    openclaw) echo 5 ;;
-    proxy|expose|zerotier-proxy) echo 6 ;;
-    reboot-check|reboot) echo 7 ;;
+    b|base|bootstrap) echo 1 ;;
+    au|admin-user|admin|user) echo 2 ;;
+    zt|zerotier) echo 3 ;;
+    d|docker) echo 4 ;;
+    oc|openclaw) echo 5 ;;
+    p|proxy|expose|zerotier-proxy) echo 6 ;;
+    rc|reboot-check|reboot) echo 7 ;;
     *)
       echo "Unknown step: $1" >&2
       usage >&2
@@ -126,7 +127,7 @@ join_zerotier_network() {
 }
 
 ensure_zerotier_connected_for_resume() {
-  if ! { [[ "$START_STEP" == "docker" || "$START_STEP" == "openclaw" ]]; }; then
+  if ! { [[ "$(step_number "$START_STEP")" == "$(step_number docker)" || "$(step_number "$START_STEP")" == "$(step_number openclaw)" ]]; }; then
     return 0
   fi
 
@@ -139,7 +140,7 @@ ensure_zerotier_connected_for_resume() {
 
   if ! command -v zerotier-cli >/dev/null 2>&1; then
     echo "ZeroTier is not installed. Resume from the zerotier step instead:"
-    echo "  sudo bash bootstrap.sh -f zerotier -n YOUR_ZEROTIER_NETWORK_ID"
+    echo "  sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -f zt"
     exit 1
   fi
 
