@@ -10,6 +10,12 @@ ADMIN_USER="${ADMIN_USER:-ocadmin}"
 LOCK_BOOTSTRAP_USER_ON_SUCCESS=false
 ADMIN_USER_READY=false
 ZT_NETWORK_ID="${ZT_NETWORK_ID:-}"
+DEFAULT_UPDATE_SOURCE="https://github.com/F0551L/openclaw-vps-autoconfig.git"
+UPDATE_SCRIPTS=false
+UPDATE_SCRIPTS_ONLY=false
+UPDATE_SOURCE="${UPDATE_SOURCE:-}"
+UPDATE_REF="${UPDATE_REF:-}"
+PASSTHROUGH_ARGS=()
 
 usage() {
   cat <<EOF
@@ -18,6 +24,11 @@ Usage: sudo bash bootstrap.sh [options]
 Options:
   -n, --zerotier-network-id ID
                               ZeroTier network ID to join.
+  -u, -us, --update-scripts   Update this bootstrap checkout before continuing.
+  -uso, --update-scripts-only Update this bootstrap checkout, then exit.
+  -s, -source, --update-source URL
+                              Override Git source for script updates.
+  -r, -ref, --update-ref REF  Override Git ref for script updates. Default: current branch.
   -f, --from STEP             Start from STEP and continue onward.
                               Steps: b/base, au/admin-user, zt/zerotier, d/docker,
                                      oc/openclaw, p/proxy, rc/reboot-check.
@@ -31,6 +42,8 @@ Options:
 
 Environment:
   ZT_NETWORK_ID               ZeroTier network ID to join.
+  UPDATE_SOURCE               Git URL/path to fetch when updating scripts.
+  UPDATE_REF                  Git ref to fetch when updating scripts.
   ADMIN_USER                  Admin sudo user to create.
   ADMIN_SSH_PUBLIC_KEY        SSH public key to install for the admin user.
   ADMIN_SSH_PUBLIC_KEY_FILE   File containing an SSH public key to install.
@@ -40,6 +53,7 @@ Environment:
                               Set true to lock the original sudo user after admin user setup.
 
 Examples:
+  sudo bash bootstrap.sh -u -n 0123456789abcdef
   sudo bash bootstrap.sh -n 0123456789abcdef
   sudo bash bootstrap.sh -n 0123456789abcdef -au openclaw
   sudo bash bootstrap.sh -n 0123456789abcdef -f d
@@ -160,6 +174,69 @@ run_script() {
   fi
 }
 
+update_scripts() {
+  local source="$UPDATE_SOURCE"
+  local ref="$UPDATE_REF"
+  local before after
+  local git_cmd=(git -c "safe.directory=$PWD")
+  local restart_args=("${PASSTHROUGH_ARGS[@]}")
+
+  if ! command -v git >/dev/null 2>&1; then
+    echo "Git is required to update scripts."
+    exit 1
+  fi
+
+  if ! "${git_cmd[@]}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "Script update requires this directory to be a Git checkout."
+    exit 1
+  fi
+
+  if [[ -n "$("${git_cmd[@]}" status --porcelain)" ]]; then
+    echo "Refusing to update scripts with local changes present."
+    echo "Commit, stash, or discard local changes before rerunning with -u."
+    exit 1
+  fi
+
+  if [[ -z "$source" ]]; then
+    source="$("${git_cmd[@]}" remote get-url origin 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$source" ]]; then
+    source="$DEFAULT_UPDATE_SOURCE"
+  fi
+
+  if [[ -z "$ref" ]]; then
+    ref="$("${git_cmd[@]}" branch --show-current 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$ref" ]]; then
+    ref="main"
+  fi
+
+  echo "== Updating bootstrap scripts =="
+  echo "Source: $source"
+  echo "Ref:    $ref"
+
+  before="$("${git_cmd[@]}" rev-parse HEAD)"
+  "${git_cmd[@]}" fetch "$source" "$ref"
+  "${git_cmd[@]}" merge --ff-only FETCH_HEAD
+  after="$("${git_cmd[@]}" rev-parse HEAD)"
+
+  if [[ "$before" == "$after" ]]; then
+    echo "Scripts already up to date."
+  else
+    echo "Scripts updated: ${before}..${after}"
+  fi
+
+  if $UPDATE_SCRIPTS_ONLY; then
+    echo "== Script update complete =="
+    exit 0
+  fi
+
+  echo "== Restarting bootstrap after script update =="
+  exec bash "$0" "${restart_args[@]}"
+}
+
 lock_bootstrap_user() {
   local bootstrap_user="${SUDO_USER:-}"
 
@@ -195,12 +272,39 @@ while [[ $# -gt 0 ]]; do
         echo "--from requires a step name."
         exit 1
       fi
+      PASSTHROUGH_ARGS+=("$1" "$2")
       step_number "$START_STEP" >/dev/null
       shift 2
       ;;
     -n|--zerotier-network-id)
       ZT_NETWORK_ID="${2:-}"
       if [[ -z "$ZT_NETWORK_ID" ]]; then
+        echo "$1 requires a value."
+        exit 1
+      fi
+      PASSTHROUGH_ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    -u|-us|--update-scripts)
+      UPDATE_SCRIPTS=true
+      shift
+      ;;
+    -uso|--update-scripts-only|-ous|--only-update-scripts)
+      UPDATE_SCRIPTS=true
+      UPDATE_SCRIPTS_ONLY=true
+      shift
+      ;;
+    -s|-source|--update-source)
+      UPDATE_SOURCE="${2:-}"
+      if [[ -z "$UPDATE_SOURCE" ]]; then
+        echo "$1 requires a value."
+        exit 1
+      fi
+      shift 2
+      ;;
+    -r|-ref|--update-ref)
+      UPDATE_REF="${2:-}"
+      if [[ -z "$UPDATE_REF" ]]; then
         echo "$1 requires a value."
         exit 1
       fi
@@ -212,26 +316,32 @@ while [[ $# -gt 0 ]]; do
         echo "--admin-user requires a value."
         exit 1
       fi
+      PASSTHROUGH_ARGS+=("$1" "$2")
       shift 2
       ;;
     --skip-admin-user|--no-admin-user|-sau)
       CREATE_ADMIN_USER=false
+      PASSTHROUGH_ARGS+=("$1")
       shift
       ;;
     --lock-bootstrap-user|--lock-permissions-on-success|-lbu)
       LOCK_BOOTSTRAP_USER_ON_SUCCESS=true
+      PASSTHROUGH_ARGS+=("$1")
       shift
       ;;
     --skip-docker|--no-docker|-sd)
       INSTALL_DOCKER=false
+      PASSTHROUGH_ARGS+=("$1")
       shift
       ;;
     --skip-openclaw|--no-openclaw|-soc)
       INSTALL_OPENCLAW=false
+      PASSTHROUGH_ARGS+=("$1")
       shift
       ;;
     --skip-proxy|--no-proxy|-sp)
       EXPOSE_OPENCLAW_ZT=false
+      PASSTHROUGH_ARGS+=("$1")
       shift
       ;;
     -h|--help)
@@ -253,6 +363,10 @@ fi
 
 export ADMIN_USER
 export LOCK_BOOTSTRAP_USER_ON_SUCCESS
+
+if $UPDATE_SCRIPTS; then
+  update_scripts
+fi
 
 echo "== Bootstrap start =="
 echo "Starting from step: $START_STEP"

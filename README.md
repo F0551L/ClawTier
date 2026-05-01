@@ -52,6 +52,18 @@ During bootstrap you may be prompted for:
 
 Bootstrap creates a sudo-capable `ocadmin` user by default. Docker, OpenClaw, and the ZeroTier reverse proxy also run by default. Use the skip flags below when you want to stop before one of those stages.
 
+To pull the latest bootstrap scripts from Git before continuing:
+
+```bash
+sudo bash bootstrap.sh -u -n YOUR_ZEROTIER_NETWORK_ID
+```
+
+To update the scripts and stop before running any setup:
+
+```bash
+sudo bash bootstrap.sh -uso
+```
+
 ---
 
 ### 4. Optional: run non-interactively
@@ -61,6 +73,12 @@ sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -au openclaw
 ```
 
 `--zerotier-network-id` is also accepted as a longer alias for `-n`.
+
+For forks or custom script sources, override the update source:
+
+```bash
+sudo bash bootstrap.sh -u -s https://github.com/YOUR_USERNAME/openclaw-vps-autoconfig.git -n YOUR_ZEROTIER_NETWORK_ID
+```
 
 To install an SSH public key for the admin user during bootstrap:
 
