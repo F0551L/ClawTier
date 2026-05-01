@@ -77,6 +77,20 @@ if [[ "$RUN_DOCKER" =~ ^[Yy]$ ]]; then
   fi
 fi
 
+echo ""
+read -rp "Install OpenClaw now? [y/N]: " INSTALL_OPENCLAW
+
+if [[ "$INSTALL_OPENCLAW" =~ ^[Yy]$ ]]; then
+  if [[ -f scripts/install-openclaw.sh ]]; then
+    echo "== Installing OpenClaw =="
+    bash scripts/install-openclaw.sh
+  else
+    echo "OpenClaw install script not found: scripts/install-openclaw.sh"
+  fi
+else
+  echo "Skipping OpenClaw install"
+fi
+
 echo "== Checking reboot requirement =="
 if [[ -f /var/run/reboot-required ]]; then
   echo "Reboot required. Run: sudo reboot"

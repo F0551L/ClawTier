@@ -74,10 +74,8 @@ sudo reboot
 ├── bootstrap.sh              # Base system setup (packages, firewall, ZeroTier)
 ├── scripts/
 │   ├── install-docker.sh     # Docker installation
-│   ├── install-openclaw.sh   # OpenClaw setup (stage 2)
+│   ├── install-openclaw.sh   # OpenClaw install (official Docker setup)
 │   └── harden-ssh.sh         # Optional SSH hardening
-├── compose/                  # Docker compose files
-├── .env.example              # Environment template
 └── README.md
 ```
 
@@ -110,6 +108,8 @@ This separation allows:
 
 * changing app stack without touching base config
 * easier rebuilds and experimentation
+
+OpenClaw is installed using its official Docker-based setup script, which manages its own containers and configuration.
 
 ---
 
