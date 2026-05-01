@@ -4,6 +4,7 @@ set -euo pipefail
 PROXY_NAME="openclaw-zerotier-proxy"
 PROXY_DIR="/opt/${PROXY_NAME}"
 SERVICE_FILE="/etc/systemd/system/${PROXY_NAME}.service"
+OPENCLAW_DIR="${OPENCLAW_DIR:-/opt/openclaw}"
 OPENCLAW_UPSTREAM="${OPENCLAW_UPSTREAM:-127.0.0.1:18789}"
 PROXY_PORT="${PROXY_PORT:-80}"
 ZT_IP="${ZT_IP:-}"
@@ -82,6 +83,30 @@ find_zerotier_address() {
   done
 
   return 1
+}
+
+configure_openclaw_allowed_origins() {
+  local control_origin allowed_origins
+
+  if [[ ! -d "$OPENCLAW_DIR" ]]; then
+    echo "OpenClaw directory not found at $OPENCLAW_DIR; skipping Control UI allowed origin config."
+    return 0
+  fi
+
+  if [[ "$PROXY_PORT" == "80" ]]; then
+    control_origin="http://${ZT_IP}"
+  else
+    control_origin="http://${ZT_IP}:${PROXY_PORT}"
+  fi
+
+  allowed_origins="[\"http://localhost:18789\",\"http://127.0.0.1:18789\",\"${control_origin}\"]"
+
+  echo "== Allowing OpenClaw Control UI origin =="
+  echo "Allowed origin: $control_origin"
+  (
+    cd "$OPENCLAW_DIR"
+    docker compose run --rm openclaw-cli config set gateway.controlUi.allowedOrigins "$allowed_origins"
+  )
 }
 
 show_zerotier_status
@@ -169,6 +194,8 @@ docker pull caddy:2-alpine
 echo "== Enabling reverse proxy service =="
 systemctl daemon-reload
 systemctl enable --now "$PROXY_NAME"
+
+configure_openclaw_allowed_origins
 
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
   echo "== Allowing proxy port through UFW on ZeroTier only =="

@@ -204,6 +204,7 @@ Handled by `scripts/expose-openclaw-zerotier.sh`:
 * Generates a Caddy reverse proxy config
 * Runs Caddy as a Docker container with host networking
 * Binds the proxy to the ZeroTier address only
+* Adds the detected ZeroTier Control UI URL to `gateway.controlUi.allowedOrigins`
 * Allows the proxy port through UFW on the ZeroTier interface only
 
 By default, OpenClaw remains on the host loopback address at `127.0.0.1:18789`, and the proxy exposes it to ZeroTier peers at:
