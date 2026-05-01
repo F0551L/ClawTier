@@ -1,12 +1,12 @@
-# openclaw-vps-autoconfig
+# OpenClaw-over-ZeroTier VPS Bootstrap
 
-Bootstrap and configuration scripts for a disposable VPS setup, intended for running OpenClaw and related services.
+Bootstrap and configuration scripts for a disposable Ubuntu VPS running OpenClaw with private access over ZeroTier.
 
 ---
 
 ## Overview
 
-This repo defines the **baseline configuration** for a fresh VPS, with a focus on repeatability and minimal manual intervention.
+This repo defines a **baseline configuration** for a fresh VPS, with a focus on repeatability, minimal manual intervention, and keeping OpenClaw off the public internet where possible.
 
 ### Goals
 
@@ -39,7 +39,7 @@ ssh user@YOUR_IP
 
 ```bash
 sudo apt update && sudo apt install -y git
-git clone https://github.com/YOUR_USERNAME/openclaw-vps-autoconfig.git
+git clone https://github.com/F0551L/openclaw-vps-autoconfig.git
 cd openclaw-vps-autoconfig
 sudo bash bootstrap.sh
 ```
@@ -78,7 +78,6 @@ sudo reboot
 │   ├── install-openclaw.sh   # OpenClaw install (official Docker setup)
 │   ├── expose-openclaw-zerotier.sh
 │   │                           # Caddy reverse proxy bound to ZeroTier only
-│   └── harden-ssh.sh         # Optional SSH hardening
 └── README.md
 ```
 
@@ -105,7 +104,6 @@ Handled by scripts in `/scripts`:
 
 * Docker installation (`install-docker.sh`)
 * OpenClaw deployment (`install-openclaw.sh`)
-* Optional SSH hardening
 
 This separation allows:
 
