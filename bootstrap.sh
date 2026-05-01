@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+  echo "Please run as root, e.g. sudo bash bootstrap.sh"
+  exit 1
+fi
+
+echo "== Updating system =="
+apt update
+apt upgrade -y
+
+echo "== Installing base packages =="
+apt install -y \
+  curl \
+  git \
+  ufw \
+  fail2ban \
+  ca-certificates \
+  gnupg \
+  lsb-release \
+  unattended-upgrades
+
+echo "== Allowing SSH and ZeroTier through UFW =="
+ufw allow 22/tcp
+ufw allow 9993/udp
+#ufw allow 9993/tcp     # disabled for now
+ufw --force enable
+
+echo "== Installing ZeroTier =="
+curl -s https://install.zerotier.com | bash
+
+echo "== Enabling services =="
+systemctl enable --now zerotier-one
+systemctl enable --now fail2ban
+
+until zerotier-cli info >/dev/null 2>&1; do
+  echo "Waiting for ZeroTier service..."
+  sleep 1
+done
+
+echo "ZeroTier node ID:"
+zerotier-cli info
+
+read -rp "Enter ZeroTier Network ID (leave blank to skip): " ZT_NETWORK_ID
+
+if [[ -n "$ZT_NETWORK_ID" ]]; then
+  if [[ "$ZT_NETWORK_ID" =~ ^[0-9a-fA-F]{16}$ ]]; then
+    echo "Joining ZeroTier network..."
+    zerotier-cli join "$ZT_NETWORK_ID"
+  else
+    echo "Invalid Network ID format. Skipping join."
+  fi
+else
+  echo "Skipping ZeroTier join."
+fi
+
+
+echo "== Checking reboot requirement =="
+if [[ -f /var/run/reboot-required ]]; then
+  echo "Reboot required. Run: sudo reboot"
+else
+  echo "No reboot required."
+fi
+
+echo "== Done =="
