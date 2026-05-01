@@ -55,6 +55,27 @@ else
   echo "Skipping ZeroTier join."
 fi
 
+echo ""
+INSTALL_DOCKER_FLAG=false
+
+if [[ "${1:-}" == "--with-docker" ]]; then
+  INSTALL_DOCKER_FLAG=true
+fi
+
+if $INSTALL_DOCKER_FLAG; then
+  RUN_DOCKER="y"
+else
+  read -rp "Install Docker now? [y/N]: " RUN_DOCKER
+fi
+
+if [[ "$RUN_DOCKER" =~ ^[Yy]$ ]]; then
+  if [[ -f scripts/install-docker.sh ]]; then
+    echo "== Installing Docker =="
+    bash scripts/install-docker.sh
+  else
+    echo "Docker install script not found: scripts/install-docker.sh"
+  fi
+fi
 
 echo "== Checking reboot requirement =="
 if [[ -f /var/run/reboot-required ]]; then

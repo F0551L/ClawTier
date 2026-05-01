@@ -47,10 +47,19 @@ sudo bash bootstrap.sh
 During bootstrap you may be prompted for:
 
 * ZeroTier Network ID (optional)
+* Whether to install Docker
 
 ---
 
-### 4. Reboot (if required)
+### 4. Optional: run with Docker automatically
+
+```bash
+sudo bash bootstrap.sh --with-docker
+```
+
+---
+
+### 5. Reboot (if required)
 
 ```bash
 sudo reboot
@@ -89,13 +98,13 @@ This stage prepares a **secure, minimal, network-ready host**.
 
 ---
 
-### Stage 2 — Services (separate scripts)
+### Stage 2 — Services
 
 Handled by scripts in `/scripts`:
 
-* Docker installation
-* OpenClaw deployment
-* Optional reverse proxy / additional services
+* Docker installation (`install-docker.sh`)
+* OpenClaw deployment (`install-openclaw.sh`)
+* Optional SSH hardening
 
 This separation allows:
 
@@ -108,10 +117,11 @@ This separation allows:
 
 * Primary access via ZeroTier private network
 * Public exposure should be avoided where possible
-* Default open ports:
 
-  * `22/tcp` (SSH)
-  * `9993/udp` (ZeroTier)
+Default open ports:
+
+* `22/tcp` — SSH
+* `9993/udp` — ZeroTier
 
 Future option:
 
@@ -152,7 +162,7 @@ Future option:
 * Reverse proxy (Caddy / Nginx)
 * ZeroTier-only service exposure model
 * Automated rebuild workflow
-* Optional SSH hardening script
+* Optional SSH hardening improvements
 
 ---
 
