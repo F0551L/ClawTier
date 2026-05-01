@@ -49,16 +49,15 @@ sudo bash bootstrap.sh
 During bootstrap you may be prompted for:
 
 * ZeroTier Network ID (required)
-* Whether to install Docker, default `yes`
-* Whether to install OpenClaw, default `yes`
-* Whether to expose OpenClaw on ZeroTier through a reverse proxy, default `yes`
+
+Docker, OpenClaw, and the ZeroTier reverse proxy run by default. Use the skip flags below when you want to stop before one of those stages.
 
 ---
 
 ### 4. Optional: run non-interactively
 
 ```bash
-sudo bash bootstrap.sh --zerotier-network-id YOUR_ZEROTIER_NETWORK_ID --yes
+sudo bash bootstrap.sh --zerotier-network-id YOUR_ZEROTIER_NETWORK_ID
 ```
 
 ---

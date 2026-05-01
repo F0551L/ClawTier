@@ -2,7 +2,6 @@
 set -euo pipefail
 
 START_STEP="base"
-ASSUME_YES=false
 INSTALL_DOCKER=true
 INSTALL_OPENCLAW=true
 EXPOSE_OPENCLAW_ZT=true
@@ -16,7 +15,6 @@ Options:
   --from STEP                 Start from STEP and continue onward.
                               Steps: base, zerotier, docker, openclaw, proxy, reboot-check
   --zerotier-network-id ID    ZeroTier network ID to join.
-  --yes                       Accept default answers for optional prompts.
   --skip-docker               Skip Docker installation.
   --skip-openclaw             Skip OpenClaw installation.
   --skip-proxy                Skip ZeroTier reverse proxy setup.
@@ -28,7 +26,7 @@ Environment:
 
 Examples:
   sudo bash bootstrap.sh
-  sudo bash bootstrap.sh --zerotier-network-id 0123456789abcdef --yes
+  sudo bash bootstrap.sh --zerotier-network-id 0123456789abcdef
   sudo bash bootstrap.sh --from docker
   sudo bash bootstrap.sh --from proxy
 EOF
@@ -55,24 +53,6 @@ should_run() {
   [[ "$(step_number "$step")" -ge "$(step_number "$START_STEP")" ]]
 }
 
-prompt_yes_no() {
-  local prompt="$1"
-  local default="${2:-y}"
-  local answer
-
-  if $ASSUME_YES; then
-    return 0
-  fi
-
-  if [[ "$default" == "y" ]]; then
-    read -rp "$prompt [Y/n]: " answer
-    [[ ! "$answer" =~ ^[Nn]$ ]]
-  else
-    read -rp "$prompt [y/N]: " answer
-    [[ "$answer" =~ ^[Yy]$ ]]
-  fi
-}
-
 require_zerotier_network_id() {
   while [[ -z "$ZT_NETWORK_ID" ]]; do
     read -rp "Enter ZeroTier Network ID: " ZT_NETWORK_ID
@@ -87,10 +67,8 @@ require_zerotier_network_id() {
 
 run_script() {
   local script_path="$1"
-  local label="$2"
 
   if [[ -f "$script_path" ]]; then
-    echo "== $label =="
     bash "$script_path"
   else
     echo "Required script not found: $script_path"
@@ -116,10 +94,6 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       shift 2
-      ;;
-    --yes|-y)
-      ASSUME_YES=true
-      shift
       ;;
     --skip-docker|--no-docker)
       INSTALL_DOCKER=false
@@ -215,25 +189,25 @@ if should_run zerotier; then
   fi
 fi
 
-if should_run docker && $INSTALL_DOCKER; then
-  if prompt_yes_no "Install Docker now?" "y"; then
-    run_script "scripts/install-docker.sh" "Installing Docker"
+if should_run docker; then
+  if $INSTALL_DOCKER; then
+    run_script "scripts/install-docker.sh"
   else
     echo "Skipping Docker install"
   fi
 fi
 
-if should_run openclaw && $INSTALL_OPENCLAW; then
-  if prompt_yes_no "Install OpenClaw now?" "y"; then
-    run_script "scripts/install-openclaw.sh" "Installing OpenClaw"
+if should_run openclaw; then
+  if $INSTALL_OPENCLAW; then
+    run_script "scripts/install-openclaw.sh"
   else
     echo "Skipping OpenClaw install"
   fi
 fi
 
-if should_run proxy && $EXPOSE_OPENCLAW_ZT; then
-  if prompt_yes_no "Expose OpenClaw on ZeroTier with a reverse proxy now?" "y"; then
-    run_script "scripts/expose-openclaw-zerotier.sh" "Configuring OpenClaw ZeroTier reverse proxy"
+if should_run proxy; then
+  if $EXPOSE_OPENCLAW_ZT; then
+    run_script "scripts/expose-openclaw-zerotier.sh"
   else
     echo "Skipping OpenClaw ZeroTier reverse proxy"
   fi
