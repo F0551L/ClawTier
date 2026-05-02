@@ -8,26 +8,42 @@ Always follow this workflow when making changes unless explicitly told otherwise
 
 ## Git workflow
 
-Use stacked branches for non-trivial work.
+Use a feature base branch plus stacked branches for non-trivial work.
+
+When creating changes:
+
+* Fetch remote refs before starting new requested changes, then check the current branch, upstream branch, and relevant PR state so completed or retargeted PRs do not become stale stack bases.
+* Always push to a new branch.
+* Immediately push new workflow branches to the remote as soon as they are created, before committing anything, so other agent instances can fetch the branch and rebase from it if instructed.
+* Open a pull request for the branch.
+* Assign the user as an assignee.
+* Do not approve or close pull requests created by an agent unless the user explicitly asks you to complete that PR.
+* Use stacked PRs when changes depend on earlier branches.
+* Push follow-up commits to the same PR branch when updating review feedback or continuing that change.
+* Ensure `.github/CODEOWNERS` exists before opening a pull request. If it is missing, add it in the same logical change when appropriate.
+* Ensure the repository owner is included in `.github/CODEOWNERS` for every path. Infer the owner from the GitHub remote owner when possible; ask the user if the owner cannot be determined.
 
 ### Branch structure
 
 * Do not put unrelated work into one branch.
-* Prefer small, dependent branches over one large branch.
-* Each branch should represent one logical step.
-* If a task depends on previous changes, create the new branch from the previous branch, not from `main`.
-* Branch names should use workflow prefixes:
-  * `feature/...` for the base feature/integration branch.
-  * `codex/...` for Codex-authored stacked branches on top of that feature branch.
+* For non-trivial features, create one feature base branch from `main`.
+* Prefix feature base branches with `feature/`.
+* Create stacked implementation branches from the feature base branch, or from the previous stacked branch when the work depends on it.
+* Prefix stacked implementation branches with the agent name, such as `codex/`.
+* Prefer small, dependent stacked branches over one large branch.
+* Each stacked branch should represent one logical step.
+* Merge stacked branches back into the feature base branch, not directly into `main`.
+* Leave the feature base branch PR into `main` for the user to open manually unless the user explicitly asks an agent to open the whole-feature PR.
 
 Example structure:
 
 ```text
 main
-└── bootstrap-base
-    └── zerotier-install
-        └── docker-install
-            └── openclaw-compose
+└── feature/vps-bootstrap
+    ├── agent/zerotier-install
+    │   └── agent/docker-install
+    │       └── agent/openclaw-compose
+    └── agent/docs-update
 ```
 
 Each branch should be suitable for its own pull request.
@@ -36,17 +52,32 @@ Each branch should be suitable for its own pull request.
 
 ### Pull request targets
 
-* During stack review, do **not** open a PR from `feature/...` to `main` unless explicitly requested.
-* Each `codex/...` stacked branch should target the `feature/...` branch (or the immediately lower stack branch when multiple codex layers exist).
-* Do not target all stacked PRs directly at `main`.
+* The feature base branch eventually targets `main`, but the user opens that PR manually unless explicitly requested.
+* The first stacked implementation branch targets the feature base branch.
+* Each dependent stacked branch targets the branch immediately below it.
+* Do not target stacked implementation PRs directly at `main`.
 
 Example:
 
 ```text
-feature/openclaw-defaults               (no PR to main yet)
-codex/readme-noninteractive-hardening   -> feature/openclaw-defaults
-codex/agents-stack-conventions          -> feature/openclaw-defaults
+feature/vps-bootstrap  -> main
+agent/zerotier-install -> feature/vps-bootstrap
+agent/docker-install   -> agent/zerotier-install
+agent/openclaw-compose -> agent/docker-install
+agent/docs-update      -> feature/vps-bootstrap
 ```
+
+---
+
+### Merge preference
+
+Prefer **Squash and merge** when completing pull requests in this workflow.
+
+* Squash stacked implementation branches into the feature base branch.
+* Squash the feature base branch into `main` when the full feature is ready.
+* Name each squash commit after the idea of the branch.
+* Avoid merge commits.
+* Do not default to rebase-and-merge for stacked PR completion unless the user explicitly asks for it.
 
 ---
 
