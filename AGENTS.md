@@ -16,6 +16,7 @@ When creating changes:
 * Immediately push new workflow branches to the remote as soon as they are created, before committing anything, so other agent instances can fetch the branch and rebase from it if instructed.
 * Open a pull request for the branch.
 * Assign the user as a reviewer.
+* Do not approve or close pull requests created by an agent unless the user explicitly asks you to complete that PR.
 * Use stacked PRs when changes depend on earlier branches.
 * Push follow-up commits to the same PR branch when updating review feedback or continuing that change.
 * Ensure `.github/CODEOWNERS` exists before opening a pull request. If it is missing, add it in the same logical change when appropriate.
