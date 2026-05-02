@@ -5,6 +5,7 @@ OPENCLAW_DIR="${OPENCLAW_DIR:-/opt/openclaw}"
 OPENCLAW_REPO="${OPENCLAW_REPO:-https://github.com/openclaw/openclaw.git}"
 OPENCLAW_LATEST_RELEASE_URL="${OPENCLAW_LATEST_RELEASE_URL:-https://github.com/openclaw/openclaw/releases/latest}"
 OPENCLAW_REF="${OPENCLAW_REF:-}"
+OPENCLAW_SETUP_USE_DEFAULTS="${OPENCLAW_SETUP_USE_DEFAULTS:-false}"
 
 echo "== Installing OpenClaw via official Docker setup =="
 
@@ -52,7 +53,11 @@ git -C "$OPENCLAW_DIR" checkout --force "$OPENCLAW_RESOLVED_REF"
 cd "$OPENCLAW_DIR"
 
 echo "== Running OpenClaw Docker setup =="
-./scripts/docker/setup.sh
+if [[ "$OPENCLAW_SETUP_USE_DEFAULTS" == "true" ]]; then
+  ./scripts/docker/setup.sh --defaults
+else
+  ./scripts/docker/setup.sh
+fi
 
 echo ""
 echo "== OpenClaw setup complete =="

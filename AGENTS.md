@@ -16,6 +16,9 @@ Use stacked branches for non-trivial work.
 * Prefer small, dependent branches over one large branch.
 * Each branch should represent one logical step.
 * If a task depends on previous changes, create the new branch from the previous branch, not from `main`.
+* Branch names should use workflow prefixes:
+  * `feature/...` for the base feature/integration branch.
+  * `codex/...` for Codex-authored stacked branches on top of that feature branch.
 
 Example structure:
 
@@ -33,17 +36,16 @@ Each branch should be suitable for its own pull request.
 
 ### Pull request targets
 
-* The first branch targets `main`.
-* Each dependent branch targets the branch immediately below it.
+* During stack review, do **not** open a PR from `feature/...` to `main` unless explicitly requested.
+* Each `codex/...` stacked branch should target the `feature/...` branch (or the immediately lower stack branch when multiple codex layers exist).
 * Do not target all stacked PRs directly at `main`.
 
 Example:
 
 ```text
-bootstrap-base        -> main
-zerotier-install      -> bootstrap-base
-docker-install        -> zerotier-install
-openclaw-compose      -> docker-install
+feature/openclaw-defaults               (no PR to main yet)
+codex/readme-noninteractive-hardening   -> feature/openclaw-defaults
+codex/agents-stack-conventions          -> feature/openclaw-defaults
 ```
 
 ---

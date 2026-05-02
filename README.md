@@ -15,6 +15,12 @@ cd openclaw-vps-autoconfig
 sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID
 ```
 
+Fully non-interactive OpenClaw install (except optional device approval at the end):
+
+```bash
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -ocd -sad
+```
+
 During the proxy step, the script prints a tokenized Control UI URL. Open that URL from the browser/profile you want to use, trust the printed self-signed certificate if needed, then approve the pending browser device:
 
 ```bash
@@ -26,7 +32,7 @@ The `ad` step can be rerun any time a new browser/profile needs approval.
 For unattended bootstrap runs, skip the interactive approval step and run it later:
 
 ```bash
-sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -sad
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -ocd -sad
 sudo bash bootstrap.sh -f ad
 ```
 
@@ -49,6 +55,13 @@ ZeroTier is part of the baseline, not an optional add-on. The intended access mo
 ---
 
 ## Usage
+
+Recommended reading order:
+
+1. **Quick Start** for a first successful run.
+2. **Non-interactive options** if you want unattended provisioning.
+3. **Step resume and skip flags** for troubleshooting and partial reruns.
+4. **Security notes** to understand hardening choices.
 
 ### 1. Provision VPS
 
@@ -97,10 +110,12 @@ sudo bash bootstrap.sh -uso
 ### 4. Optional: run non-interactively
 
 ```bash
-sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -au openclaw -sad
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -au openclaw -ocd -sad
 ```
 
 `--zerotier-network-id` is also accepted as a longer alias for `-n`.
+
+`-ocd` / `-ud` / `--openclaw-defaults` / `--use-defaults` runs the OpenClaw Docker setup script with its defaults so the OpenClaw setup step does not prompt interactively.
 
 `-sad` skips the interactive Control UI device approval step. Run it later after opening the printed tokenized URL in the browser/profile you want to approve:
 
@@ -168,6 +183,15 @@ sudo bash bootstrap.sh -sd
 sudo bash bootstrap.sh -soc
 sudo bash bootstrap.sh -sp
 sudo bash bootstrap.sh -sad
+```
+
+Useful non-interactive flags:
+
+```bash
+sudo bash bootstrap.sh -ocd
+sudo bash bootstrap.sh -ud
+sudo bash bootstrap.sh -sad
+sudo bash bootstrap.sh -ocd -sad
 ```
 
 To lock the original sudo/bootstrap user after the `ocadmin` account is created successfully:
@@ -260,6 +284,37 @@ By default, OpenClaw remains on the host loopback address at `127.0.0.1:18789`, 
 https://ZEROTIER_IP/
 ```
 
+---
+
+## Security Hardening Notes
+
+This bootstrap is designed to reduce exposed attack surface for a disposable VPS pattern.
+
+### Network controls
+
+* `ufw` is enabled during bootstrap.
+* SSH (`22/tcp`) and ZeroTier (`9993/udp`) are allowed.
+* OpenClaw is kept on loopback (`127.0.0.1:18789`) and not exposed directly on the public interface.
+* The Caddy reverse proxy binds to the ZeroTier interface/IP so Control UI access is limited to ZeroTier peers.
+
+### Access controls
+
+* A dedicated sudo admin account (`ocadmin` by default) is created.
+* Optional `-lbu` / `--lock-bootstrap-user` locks the original bootstrap sudo user's password after successful admin-user setup.
+* Device approval is explicit (`-sad` lets you postpone approval until you are ready).
+
+### Service hardening
+
+* `fail2ban` is installed and enabled when available.
+* `unattended-upgrades` is installed as part of baseline packages.
+* OpenClaw auth and remote token values are synchronized by the proxy setup script.
+
+### Operational guidance
+
+* Prefer SSH keys over passwords for admin access.
+* If you must set a password non-interactively, use a root-only file (`ADMIN_PASSWORD_FILE`) and avoid inline secrets in shell history.
+* Rebuild frequently from automation rather than mutating long-lived servers manually.
+
 The script prints the generated gateway token, a tokenized Control UI URL, and the device approval command at the end. Because the default HTTPS certificate is self-signed, install and trust the printed `.crt` file on any client device that will use the Control UI.
 
 Run manually after OpenClaw is installed:
@@ -318,18 +373,6 @@ Default open ports:
 Future option:
 
 * Restrict SSH to ZeroTier only
-
----
-
-## Security Notes
-
-* Change provider/root passwords immediately after bootstrap
-* Prefer SSH key authentication
-* Bootstrap creates a password-locked, passwordless-sudo `ocadmin` user by default
-* Use `ADMIN_PASSWORD_PROMPT=true` or a root-only `ADMIN_PASSWORD_FILE` if password login is needed
-* Use `-lbu` only after you have confirmed the new admin account works
-* Keep exposed ports to a minimum
-* Prefer private network access over public endpoints
 
 ---
 

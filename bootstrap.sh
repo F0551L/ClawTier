@@ -8,6 +8,7 @@ EXPOSE_OPENCLAW_ZT=true
 APPROVE_OPENCLAW_DEVICE=true
 CREATE_ADMIN_USER=true
 ADMIN_USER="${ADMIN_USER:-ocadmin}"
+OPENCLAW_DEFAULTS=false
 LOCK_BOOTSTRAP_USER_ON_SUCCESS=false
 ADMIN_USER_READY=false
 ZT_NETWORK_ID="${ZT_NETWORK_ID:-}"
@@ -39,6 +40,8 @@ Options:
   -lbu, --lock-bootstrap-user Lock the original sudo user after admin user setup succeeds.
   -sd, --skip-docker          Skip Docker installation.
   -soc, --skip-openclaw       Skip OpenClaw installation.
+  -ocd, -ud, --openclaw-defaults, --use-defaults
+                              Run OpenClaw setup with defaults (non-interactive).
   -sp, --skip-proxy           Skip ZeroTier reverse proxy setup.
   -sad, --skip-approve-device Skip interactive OpenClaw device approval.
   -h, --help                  Show this help.
@@ -61,6 +64,7 @@ Examples:
   sudo bash bootstrap.sh -n 0123456789abcdef -au openclaw
   sudo bash bootstrap.sh -n 0123456789abcdef -f d
   sudo bash bootstrap.sh -n 0123456789abcdef -f p
+  sudo bash bootstrap.sh -n 0123456789abcdef -ocd -sad
   sudo bash bootstrap.sh -f ad
 EOF
 }
@@ -344,6 +348,11 @@ while [[ $# -gt 0 ]]; do
       PASSTHROUGH_ARGS+=("$1")
       shift
       ;;
+    --openclaw-defaults|--openclaw-setup-defaults|--use-defaults|-ocd|-ud)
+      OPENCLAW_DEFAULTS=true
+      PASSTHROUGH_ARGS+=("$1")
+      shift
+      ;;
     --skip-proxy|--no-proxy|-sp)
       EXPOSE_OPENCLAW_ZT=false
       PASSTHROUGH_ARGS+=("$1")
@@ -446,7 +455,11 @@ fi
 
 if should_run openclaw; then
   if $INSTALL_OPENCLAW; then
-    run_script "scripts/install-openclaw.sh"
+    if $OPENCLAW_DEFAULTS; then
+      OPENCLAW_SETUP_USE_DEFAULTS=true run_script "scripts/install-openclaw.sh"
+    else
+      run_script "scripts/install-openclaw.sh"
+    fi
   else
     echo "Skipping OpenClaw install"
   fi
