@@ -8,7 +8,7 @@ Always follow this workflow when making changes unless explicitly told otherwise
 
 ## Git workflow
 
-Use stacked branches for non-trivial work.
+Use a feature base branch plus stacked branches for non-trivial work.
 
 When creating changes:
 
@@ -25,18 +25,22 @@ When creating changes:
 ### Branch structure
 
 * Do not put unrelated work into one branch.
-* Prefer small, dependent branches over one large branch.
-* Each branch should represent one logical step.
-* If a task depends on previous changes, create the new branch from the previous branch, not from `main`.
+* For non-trivial features, create one feature base branch from `main`.
+* Create stacked implementation branches from the feature base branch, or from the previous stacked branch when the work depends on it.
+* Prefer small, dependent stacked branches over one large branch.
+* Each stacked branch should represent one logical step.
+* Merge stacked branches back into the feature base branch, not directly into `main`.
+* Once the feature is complete, open the feature base branch PR into `main` as the single feature-level merge.
 
 Example structure:
 
 ```text
 main
-└── bootstrap-base
-    └── zerotier-install
-        └── docker-install
-            └── openclaw-compose
+└── vps-bootstrap-feature
+    ├── zerotier-install
+    │   └── docker-install
+    │       └── openclaw-compose
+    └── docs-update
 ```
 
 Each branch should be suitable for its own pull request.
@@ -45,18 +49,32 @@ Each branch should be suitable for its own pull request.
 
 ### Pull request targets
 
-* The first branch targets `main`.
-* Each dependent branch targets the branch immediately below it.
-* Do not target all stacked PRs directly at `main`.
+* The feature base branch targets `main`.
+* The first stacked implementation branch targets the feature base branch.
+* Each dependent stacked branch targets the branch immediately below it.
+* Do not target stacked implementation PRs directly at `main`.
 
 Example:
 
 ```text
-bootstrap-base        -> main
-zerotier-install      -> bootstrap-base
+vps-bootstrap-feature -> main
+zerotier-install      -> vps-bootstrap-feature
 docker-install        -> zerotier-install
 openclaw-compose      -> docker-install
+docs-update           -> vps-bootstrap-feature
 ```
+
+---
+
+### Merge preference
+
+Prefer **Squash and merge** when completing pull requests in this workflow.
+
+* Squash stacked implementation branches into the feature base branch.
+* Squash the feature base branch into `main` when the full feature is ready.
+* Name each squash commit after the idea of the branch.
+* Avoid merge commits.
+* Do not default to rebase-and-merge for stacked PR completion unless the user explicitly asks for it.
 
 ---
 
