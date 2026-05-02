@@ -25,6 +25,14 @@ When creating changes:
 
 ### Branch structure
 
+#### Long-lived branches
+
+This repository keeps three sticky branches:
+
+* `main` is the protected, releasable branch. Do not force-push to it.
+* `dev` is the owner's quick local/manual-fix branch. It may intentionally lag behind `main`; do not treat it as stale or update it unless the user asks.
+* `agents` is the sticky branch for agent workflow instruction changes. Target workflow-instruction PRs from `agents` into `main` unless the user asks for a different target.
+
 * Do not put unrelated work into one branch.
 * For non-trivial features, create one feature base branch from `main`.
 * Prefix feature base branches with `feature/`.
