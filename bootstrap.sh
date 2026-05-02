@@ -5,6 +5,7 @@ START_STEP="base"
 INSTALL_DOCKER=true
 INSTALL_OPENCLAW=true
 EXPOSE_OPENCLAW_ZT=true
+APPROVE_OPENCLAW_DEVICE=true
 CREATE_ADMIN_USER=true
 ADMIN_USER="${ADMIN_USER:-ocadmin}"
 LOCK_BOOTSTRAP_USER_ON_SUCCESS=false
@@ -31,13 +32,15 @@ Options:
   -r, -ref, --update-ref REF  Override Git ref for script updates. Default: current branch.
   -f, --from STEP             Start from STEP and continue onward.
                               Steps: b/base, au/admin-user, zt/zerotier, d/docker,
-                                     oc/openclaw, p/proxy, rc/reboot-check.
+                                     oc/openclaw, p/proxy, ad/approve-device,
+                                     rc/reboot-check.
   -au, --admin-user USER      Admin sudo user to create. Default: ocadmin.
   -sau, --skip-admin-user     Skip admin user creation.
   -lbu, --lock-bootstrap-user Lock the original sudo user after admin user setup succeeds.
   -sd, --skip-docker          Skip Docker installation.
   -soc, --skip-openclaw       Skip OpenClaw installation.
   -sp, --skip-proxy           Skip ZeroTier reverse proxy setup.
+  -sad, --skip-approve-device Skip interactive OpenClaw device approval.
   -h, --help                  Show this help.
 
 Environment:
@@ -58,6 +61,7 @@ Examples:
   sudo bash bootstrap.sh -n 0123456789abcdef -au openclaw
   sudo bash bootstrap.sh -n 0123456789abcdef -f d
   sudo bash bootstrap.sh -n 0123456789abcdef -f p
+  sudo bash bootstrap.sh -f ad
 EOF
 }
 
@@ -69,7 +73,8 @@ step_number() {
     d|docker) echo 4 ;;
     oc|openclaw) echo 5 ;;
     p|proxy|expose|zerotier-proxy) echo 6 ;;
-    rc|reboot-check|reboot) echo 7 ;;
+    ad|approve-device|approve|device|pairing) echo 7 ;;
+    rc|reboot-check|reboot) echo 8 ;;
     *)
       echo "Unknown step: $1" >&2
       usage >&2
@@ -344,6 +349,11 @@ while [[ $# -gt 0 ]]; do
       PASSTHROUGH_ARGS+=("$1")
       shift
       ;;
+    --skip-approve-device|--no-approve-device|-sad)
+      APPROVE_OPENCLAW_DEVICE=false
+      PASSTHROUGH_ARGS+=("$1")
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -390,6 +400,8 @@ if should_run base; then
     ca-certificates \
     gnupg \
     lsb-release \
+    openssl \
+    jq \
     unattended-upgrades
 
   echo "== Allowing SSH and ZeroTier through UFW =="
@@ -445,6 +457,14 @@ if should_run proxy; then
     run_script "scripts/expose-openclaw-zerotier.sh"
   else
     echo "Skipping OpenClaw ZeroTier reverse proxy"
+  fi
+fi
+
+if should_run approve-device; then
+  if $APPROVE_OPENCLAW_DEVICE; then
+    run_script "scripts/approve-openclaw-device.sh"
+  else
+    echo "Skipping OpenClaw device approval"
   fi
 fi
 

@@ -7,9 +7,11 @@ SERVICE_FILE="/etc/systemd/system/${PROXY_NAME}.service"
 OPENCLAW_DIR="${OPENCLAW_DIR:-/opt/openclaw}"
 OPENCLAW_UPSTREAM="${OPENCLAW_UPSTREAM:-127.0.0.1:18789}"
 PROXY_PORT="${PROXY_PORT:-80}"
+HTTPS_PROXY_PORT="${HTTPS_PROXY_PORT:-443}"
 ZT_IP="${ZT_IP:-}"
 ZT_IFACE="${ZT_IFACE:-}"
 ZT_DETECT_RETRIES="${ZT_DETECT_RETRIES:-3}"
+GATEWAY_TOKEN="${GATEWAY_TOKEN:-}"
 attempt=1
 
 if [[ $EUID -ne 0 ]]; then
@@ -20,6 +22,12 @@ fi
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is not installed. Run scripts/install-docker.sh first."
   exit 1
+fi
+
+if ! command -v openssl >/dev/null 2>&1; then
+  echo "Installing OpenSSL..."
+  apt-get update
+  apt-get install -y openssl
 fi
 
 if ! command -v zerotier-cli >/dev/null 2>&1; then
@@ -85,28 +93,98 @@ find_zerotier_address() {
   return 1
 }
 
+format_origin() {
+  local scheme="$1"
+  local host="$2"
+  local port="$3"
+
+  if [[ "$scheme" == "http" && "$port" == "80" ]] || [[ "$scheme" == "https" && "$port" == "443" ]]; then
+    echo "${scheme}://${host}"
+  else
+    echo "${scheme}://${host}:${port}"
+  fi
+}
+
+run_openclaw_cli() {
+  (
+    cd "$OPENCLAW_DIR"
+    docker compose run --rm openclaw-cli "$@"
+  )
+}
+
+get_existing_gateway_token() {
+  (
+    cd "$OPENCLAW_DIR"
+    docker compose run --rm --entrypoint node openclaw-cli -e 'try { const fs = require("fs"); const config = JSON.parse(fs.readFileSync("/home/node/.openclaw/openclaw.json", "utf8")); process.stdout.write(config?.gateway?.auth?.token || ""); } catch {}'
+  )
+}
+
 configure_openclaw_allowed_origins() {
-  local control_origin allowed_origins
+  local http_control_origin https_control_origin allowed_origins
 
   if [[ ! -d "$OPENCLAW_DIR" ]]; then
     echo "OpenClaw directory not found at $OPENCLAW_DIR; skipping Control UI allowed origin config."
     return 0
   fi
 
-  if [[ "$PROXY_PORT" == "80" ]]; then
-    control_origin="http://${ZT_IP}"
-  else
-    control_origin="http://${ZT_IP}:${PROXY_PORT}"
+  http_control_origin="$(format_origin http "$ZT_IP" "$PROXY_PORT")"
+  https_control_origin="$(format_origin https "$ZT_IP" "$HTTPS_PROXY_PORT")"
+
+  allowed_origins="[\"http://localhost:18789\",\"http://127.0.0.1:18789\",\"${http_control_origin}\",\"${https_control_origin}\"]"
+
+  echo "== Allowing OpenClaw Control UI origins =="
+  echo "Allowed origins:"
+  echo "  ${http_control_origin}"
+  echo "  ${https_control_origin}"
+  run_openclaw_cli config set gateway.controlUi.allowedOrigins "$allowed_origins"
+}
+
+configure_openclaw_gateway_auth() {
+  local existing_token
+
+  if [[ ! -d "$OPENCLAW_DIR" ]]; then
+    echo "OpenClaw directory not found at $OPENCLAW_DIR; skipping gateway token config."
+    return 0
   fi
 
-  allowed_origins="[\"http://localhost:18789\",\"http://127.0.0.1:18789\",\"${control_origin}\"]"
+  if [[ -z "$GATEWAY_TOKEN" ]]; then
+    existing_token="$(get_existing_gateway_token)"
+    if [[ -n "$existing_token" ]]; then
+      GATEWAY_TOKEN="$existing_token"
+    else
+      GATEWAY_TOKEN="$(openssl rand -hex 32)"
+    fi
+  fi
 
-  echo "== Allowing OpenClaw Control UI origin =="
-  echo "Allowed origin: $control_origin"
-  (
-    cd "$OPENCLAW_DIR"
-    docker compose run --rm openclaw-cli config set gateway.controlUi.allowedOrigins "$allowed_origins"
-  )
+  echo "== Configuring OpenClaw gateway token auth =="
+  run_openclaw_cli config set gateway.auth.mode token
+  run_openclaw_cli config set gateway.auth.token "$GATEWAY_TOKEN"
+  run_openclaw_cli config set gateway.remote.token "$GATEWAY_TOKEN"
+}
+
+generate_self_signed_cert() {
+  local cert_dir cert_name cert_path key_path
+
+  cert_dir="${PROXY_DIR}/certs"
+  cert_name="openclaw-zt-${ZT_IP}"
+  cert_path="${cert_dir}/${cert_name}.crt"
+  key_path="${cert_dir}/${cert_name}.key"
+
+  mkdir -p "$cert_dir"
+  chmod 700 "$cert_dir"
+
+  if [[ -f "$cert_path" && -f "$key_path" ]]; then
+    echo "== Reusing existing self-signed HTTPS certificate =="
+  else
+    echo "== Generating self-signed HTTPS certificate for ${ZT_IP} =="
+    openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
+      -keyout "$key_path" \
+      -out "$cert_path" \
+      -subj "/CN=${ZT_IP}" \
+      -addext "subjectAltName=IP:${ZT_IP}"
+    chmod 600 "$key_path"
+    chmod 644 "$cert_path"
+  fi
 }
 
 show_zerotier_status
@@ -148,22 +226,41 @@ if [[ ! "$PROXY_PORT" =~ ^[0-9]+$ || "$PROXY_PORT" -lt 1 || "$PROXY_PORT" -gt 65
   exit 1
 fi
 
+if [[ ! "$HTTPS_PROXY_PORT" =~ ^[0-9]+$ || "$HTTPS_PROXY_PORT" -lt 1 || "$HTTPS_PROXY_PORT" -gt 65535 ]]; then
+  echo "Invalid HTTPS_PROXY_PORT: $HTTPS_PROXY_PORT"
+  exit 1
+fi
+
+if [[ "$PROXY_PORT" == "$HTTPS_PROXY_PORT" ]]; then
+  echo "PROXY_PORT and HTTPS_PROXY_PORT must be different."
+  exit 1
+fi
+
 echo "== Configuring OpenClaw ZeroTier reverse proxy =="
 echo "ZeroTier interface: $ZT_IFACE"
 echo "ZeroTier address:   $ZT_IP"
-echo "Proxy port:         $PROXY_PORT"
+echo "HTTP proxy port:    $PROXY_PORT"
+echo "HTTPS proxy port:   $HTTPS_PROXY_PORT"
 echo "OpenClaw upstream:  $OPENCLAW_UPSTREAM"
 
 mkdir -p "$PROXY_DIR"
+generate_self_signed_cert
+
+HTTPS_CONTROL_ORIGIN="$(format_origin https "$ZT_IP" "$HTTPS_PROXY_PORT")"
 
 cat > "${PROXY_DIR}/Caddyfile" <<EOF
 {
-	auto_https off
 	admin off
 }
 
 http://${ZT_IP}:${PROXY_PORT} {
 	bind ${ZT_IP}
+	redir ${HTTPS_CONTROL_ORIGIN}{uri} permanent
+}
+
+https://${ZT_IP}:${HTTPS_PROXY_PORT} {
+	bind ${ZT_IP}
+	tls /etc/caddy/certs/openclaw-zt-${ZT_IP}.crt /etc/caddy/certs/openclaw-zt-${ZT_IP}.key
 	reverse_proxy http://${OPENCLAW_UPSTREAM}
 	header {
 		-Server
@@ -181,7 +278,7 @@ After=docker.service zerotier-one.service
 Restart=unless-stopped
 RestartSec=5
 ExecStartPre=-/usr/bin/docker rm -f ${PROXY_NAME}
-ExecStart=/usr/bin/docker run --rm --name ${PROXY_NAME} --network host -v ${PROXY_DIR}/Caddyfile:/etc/caddy/Caddyfile:ro caddy:2-alpine caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+ExecStart=/usr/bin/docker run --rm --name ${PROXY_NAME} --network host -v ${PROXY_DIR}:/etc/caddy:ro caddy:2-alpine caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
 ExecStop=-/usr/bin/docker stop ${PROXY_NAME}
 
 [Install]
@@ -193,20 +290,38 @@ docker pull caddy:2-alpine
 
 echo "== Enabling reverse proxy service =="
 systemctl daemon-reload
-systemctl enable --now "$PROXY_NAME"
+systemctl enable "$PROXY_NAME"
+systemctl restart "$PROXY_NAME"
 
 configure_openclaw_allowed_origins
+configure_openclaw_gateway_auth
+echo "== Restarting OpenClaw after gateway config changes =="
+if [[ -d "$OPENCLAW_DIR" ]]; then
+  (
+    cd "$OPENCLAW_DIR"
+    docker compose down
+    docker compose up -d
+  )
+fi
 
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
-  echo "== Allowing proxy port through UFW on ZeroTier only =="
+  echo "== Allowing proxy ports through UFW on ZeroTier only =="
   ufw allow in on "$ZT_IFACE" to "$ZT_IP" port "$PROXY_PORT" proto tcp comment "OpenClaw via ZeroTier"
+  ufw allow in on "$ZT_IFACE" to "$ZT_IP" port "$HTTPS_PROXY_PORT" proto tcp comment "OpenClaw HTTPS via ZeroTier"
 fi
 
 echo ""
 echo "== Done =="
 echo "OpenClaw should be reachable from ZeroTier peers at:"
-if [[ "$PROXY_PORT" == "80" ]]; then
-  echo "  http://${ZT_IP}/"
-else
-  echo "  http://${ZT_IP}:${PROXY_PORT}/"
-fi
+echo "  ${HTTPS_CONTROL_ORIGIN}/"
+echo "Tokenized setup URL:"
+echo "  ${HTTPS_CONTROL_ORIGIN}/#token=${GATEWAY_TOKEN}"
+echo ""
+echo "Install and trust this certificate on your client device if the browser does not trust it yet:"
+echo "  ${PROXY_DIR}/certs/openclaw-zt-${ZT_IP}.crt"
+echo ""
+echo "Gateway token for the Control UI:"
+echo "  ${GATEWAY_TOKEN}"
+echo ""
+echo "After the browser shows pairing required, approve the pending device with:"
+echo "  sudo bash scripts/approve-openclaw-device.sh"

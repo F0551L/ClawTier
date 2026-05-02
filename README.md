@@ -110,6 +110,7 @@ If a run is interrupted, call `bootstrap.sh` again with `-f, --from`:
 sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -f d
 sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -f oc
 sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -f p
+sudo bash bootstrap.sh -f ad
 ```
 
 When resuming from `docker` or `openclaw`, bootstrap checks whether ZeroTier is connected. If no connected ZeroTier network is found, it asks for `-n` interactively and tries to join before continuing.
@@ -122,6 +123,7 @@ Available steps:
 * `d`, `docker` — install Docker
 * `oc`, `openclaw` — install OpenClaw
 * `p`, `proxy` — expose OpenClaw to ZeroTier peers through Caddy
+* `ad`, `approve-device` — interactively approve a pending Control UI browser device
 * `rc`, `reboot-check` — check whether the VPS needs a reboot
 
 Useful skip flags:
@@ -131,6 +133,7 @@ sudo bash bootstrap.sh -sau
 sudo bash bootstrap.sh -sd
 sudo bash bootstrap.sh -soc
 sudo bash bootstrap.sh -sp
+sudo bash bootstrap.sh -sad
 ```
 
 To lock the original sudo/bootstrap user after the `ocadmin` account is created successfully:
@@ -158,6 +161,7 @@ sudo reboot
 │   ├── create-admin-user.sh  # Sudo admin user creation
 │   ├── install-docker.sh     # Docker installation
 │   ├── install-openclaw.sh   # OpenClaw install (official Docker setup)
+│   ├── approve-openclaw-device.sh # Interactive Control UI device approval
 │   └── expose-openclaw-zerotier.sh # ZeroTier-only Caddy proxy
 └── README.md
 ```
@@ -171,7 +175,7 @@ sudo reboot
 Handled by `bootstrap.sh`:
 
 * System update/upgrade
-* Base package install (`curl`, `git`, `ufw`, `fail2ban`)
+* Base package install (`curl`, `git`, `ufw`, `fail2ban`, `openssl`, `jq`)
 * Firewall configuration
 * Admin user creation
 * ZeroTier install and required network join
@@ -207,17 +211,22 @@ Handled by `scripts/expose-openclaw-zerotier.sh`:
 * Prints the ZeroTier node ID and joined network IDs
 * Detects the VPS ZeroTier IPv4 address
 * Prompts for retry if no ZeroTier address is available yet
-* Generates a Caddy reverse proxy config
+* Generates a self-signed HTTPS certificate for the ZeroTier IP
+* Generates a Caddy reverse proxy config with HTTP redirected to HTTPS
 * Runs Caddy as a Docker container with host networking
 * Binds the proxy to the ZeroTier address only
-* Adds the detected ZeroTier Control UI URL to `gateway.controlUi.allowedOrigins`
-* Allows the proxy port through UFW on the ZeroTier interface only
+* Adds both HTTP and HTTPS ZeroTier Control UI URLs to `gateway.controlUi.allowedOrigins`
+* Enables token auth and syncs `gateway.remote.token` with `gateway.auth.token`
+* Prints a tokenized Control UI URL for first browser setup
+* Allows the proxy ports through UFW on the ZeroTier interface only
 
 By default, OpenClaw remains on the host loopback address at `127.0.0.1:18789`, and the proxy exposes it to ZeroTier peers at:
 
 ```bash
-http://ZEROTIER_IP/
+https://ZEROTIER_IP/
 ```
+
+The script prints the generated gateway token, a tokenized Control UI URL, and the device approval command at the end. Because the default HTTPS certificate is self-signed, install and trust the printed `.crt` file on any client device that will use the Control UI.
 
 Run manually after OpenClaw is installed:
 
@@ -229,8 +238,33 @@ Optional overrides:
 
 ```bash
 sudo PROXY_PORT=8080 bash scripts/expose-openclaw-zerotier.sh
+sudo HTTPS_PROXY_PORT=8443 bash scripts/expose-openclaw-zerotier.sh
 sudo OPENCLAW_UPSTREAM=127.0.0.1:18789 PROXY_PORT=8080 bash scripts/expose-openclaw-zerotier.sh
+sudo GATEWAY_TOKEN=existing-or-preferred-token bash scripts/expose-openclaw-zerotier.sh
 sudo ZT_DETECT_RETRIES=5 bash scripts/expose-openclaw-zerotier.sh
+```
+
+### Stage 4 — Control UI device approval
+
+Handled by `scripts/approve-openclaw-device.sh`:
+
+* Prints the tokenized Control UI URL
+* Waits for you to open it from the browser/profile you want to approve
+* Polls OpenClaw for pending device requests
+* Approves the only pending request automatically, or asks for the request ID if multiple are pending
+
+Run manually after opening the printed Control UI URL:
+
+```bash
+sudo bash scripts/approve-openclaw-device.sh
+```
+
+Useful overrides:
+
+```bash
+sudo OPENCLAW_URL=https://ZEROTIER_IP/ bash scripts/approve-openclaw-device.sh
+sudo APPROVAL_POLL_SECONDS=300 bash scripts/approve-openclaw-device.sh
+sudo GATEWAY_TOKEN=existing-token bash scripts/approve-openclaw-device.sh
 ```
 
 ---
@@ -245,7 +279,7 @@ Default open ports:
 
 * `22/tcp` — SSH
 * `9993/udp` — ZeroTier
-* OpenClaw reverse proxy port — ZeroTier interface only, if enabled
+* OpenClaw reverse proxy ports — ZeroTier interface only, if enabled
 
 Future option:
 
