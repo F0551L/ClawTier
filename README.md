@@ -437,6 +437,7 @@ Future option:
 
 ## Contributing
 
+* See `AGENTS.md` for the active agent workflow and sticky branch conventions
 * Prefer **Squash and merge** for PRs
 * Use stacked PRs to merge implementation branches back into their feature branch
 * Merge the completed feature branch into `main`
