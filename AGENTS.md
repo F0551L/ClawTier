@@ -29,21 +29,21 @@ When creating changes:
 * For non-trivial features, create one feature base branch from `main`.
 * Prefix feature base branches with `feature/`.
 * Create stacked implementation branches from the feature base branch, or from the previous stacked branch when the work depends on it.
-* Stacked implementation branches may use the `codex/` prefix.
+* Prefix stacked implementation branches with the agent name, such as `codex/`.
 * Prefer small, dependent stacked branches over one large branch.
 * Each stacked branch should represent one logical step.
 * Merge stacked branches back into the feature base branch, not directly into `main`.
-* Once the feature is complete, open the feature base branch PR into `main` as the single feature-level merge.
+* Leave the feature base branch PR into `main` for the user to open manually unless the user explicitly asks an agent to open the whole-feature PR.
 
 Example structure:
 
 ```text
 main
 └── feature/vps-bootstrap
-    ├── codex/zerotier-install
-    │   └── codex/docker-install
-    │       └── codex/openclaw-compose
-    └── codex/docs-update
+    ├── agent/zerotier-install
+    │   └── agent/docker-install
+    │       └── agent/openclaw-compose
+    └── agent/docs-update
 ```
 
 Each branch should be suitable for its own pull request.
@@ -52,7 +52,7 @@ Each branch should be suitable for its own pull request.
 
 ### Pull request targets
 
-* The feature base branch targets `main`.
+* The feature base branch eventually targets `main`, but the user opens that PR manually unless explicitly requested.
 * The first stacked implementation branch targets the feature base branch.
 * Each dependent stacked branch targets the branch immediately below it.
 * Do not target stacked implementation PRs directly at `main`.
@@ -61,10 +61,10 @@ Example:
 
 ```text
 feature/vps-bootstrap  -> main
-codex/zerotier-install -> feature/vps-bootstrap
-codex/docker-install   -> codex/zerotier-install
-codex/openclaw-compose -> codex/docker-install
-codex/docs-update      -> feature/vps-bootstrap
+agent/zerotier-install -> feature/vps-bootstrap
+agent/docker-install   -> agent/zerotier-install
+agent/openclaw-compose -> agent/docker-install
+agent/docs-update      -> feature/vps-bootstrap
 ```
 
 ---
