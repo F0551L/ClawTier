@@ -4,6 +4,27 @@ Bootstrap and configuration scripts for a disposable Ubuntu VPS running OpenClaw
 
 ---
 
+## Quick Start
+
+From a fresh Ubuntu VPS:
+
+```bash
+sudo apt update && sudo apt install -y git
+git clone https://github.com/F0551L/openclaw-vps-autoconfig.git
+cd openclaw-vps-autoconfig
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID
+```
+
+During the proxy step, the script prints a tokenized Control UI URL. Open that URL from the browser/profile you want to use, trust the printed self-signed certificate if needed, then approve the pending browser device:
+
+```bash
+sudo bash bootstrap.sh -f ad
+```
+
+The `ad` step can be rerun any time a new browser/profile needs approval.
+
+---
+
 ## Overview
 
 This repo defines a **baseline configuration** for a fresh VPS, with a focus on repeatability, minimal manual intervention, and keeping OpenClaw off the public internet where possible.
