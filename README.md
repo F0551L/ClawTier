@@ -23,6 +23,13 @@ sudo bash bootstrap.sh -f ad
 
 The `ad` step can be rerun any time a new browser/profile needs approval.
 
+For unattended bootstrap runs, skip the interactive approval step and run it later:
+
+```bash
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -sad
+sudo bash bootstrap.sh -f ad
+```
+
 ---
 
 ## Overview
@@ -90,10 +97,16 @@ sudo bash bootstrap.sh -uso
 ### 4. Optional: run non-interactively
 
 ```bash
-sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -au openclaw
+sudo bash bootstrap.sh -n YOUR_ZEROTIER_NETWORK_ID -au openclaw -sad
 ```
 
 `--zerotier-network-id` is also accepted as a longer alias for `-n`.
+
+`-sad` skips the interactive Control UI device approval step. Run it later after opening the printed tokenized URL in the browser/profile you want to approve:
+
+```bash
+sudo bash bootstrap.sh -f ad
+```
 
 For forks or custom script sources, override the update source:
 
