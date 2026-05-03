@@ -16,6 +16,9 @@ WAIT_ZT_ADDRESS="${WAIT_ZT_ADDRESS:-true}"
 ZT_ADDRESS_TIMEOUT="${ZT_ADDRESS_TIMEOUT:-}"
 GATEWAY_TOKEN="${GATEWAY_TOKEN:-}"
 NONINTERACTIVE="${NONINTERACTIVE:-false}"
+ZT_NETWORK_ID="${ZT_NETWORK_ID:-}"
+ZEROTIER_API_TOKEN="${ZEROTIER_API_TOKEN:-}"
+ZEROTIER_API_TOKEN_FILE="${ZEROTIER_API_TOKEN_FILE:-}"
 attempt=1
 
 if [[ $EUID -ne 0 ]]; then
@@ -61,6 +64,33 @@ fi
 
 is_true() {
   [[ "${1:-}" =~ ^([Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss]|[Yy])$ ]]
+}
+
+load_zerotier_api_token() {
+  local perms
+
+  if [[ -z "$ZEROTIER_API_TOKEN_FILE" ]]; then
+    return 0
+  fi
+
+  if [[ ! -f "$ZEROTIER_API_TOKEN_FILE" ]]; then
+    echo "ZeroTier API token file not found: $ZEROTIER_API_TOKEN_FILE"
+    exit 1
+  fi
+
+  if [[ "$(stat -c "%u" "$ZEROTIER_API_TOKEN_FILE")" != "0" ]]; then
+    echo "ZeroTier API token file must be owned by root: $ZEROTIER_API_TOKEN_FILE"
+    exit 1
+  fi
+
+  perms="$(stat -c "%A" "$ZEROTIER_API_TOKEN_FILE")"
+  if [[ "${perms:5:1}" == "w" || "${perms:8:1}" == "w" ]]; then
+    echo "ZeroTier API token file must not be writable by group or other users: $ZEROTIER_API_TOKEN_FILE"
+    echo "Run: sudo chmod 600 $ZEROTIER_API_TOKEN_FILE"
+    exit 1
+  fi
+
+  ZEROTIER_API_TOKEN="$(head -n 1 "$ZEROTIER_API_TOKEN_FILE" | tr -d '\r')"
 }
 
 show_zerotier_status() {
@@ -125,6 +155,73 @@ find_zerotier_interface_for_ip() {
     fi
   done
 
+  return 1
+}
+
+get_zerotier_node_id() {
+  zerotier-cli info 2>/dev/null | awk '{ print $3; exit }'
+}
+
+get_joined_network_id() {
+  zerotier-cli listnetworks 2>/dev/null | awk -v target="$ZT_NETWORK_ID" '
+    /^200 listnetworks/ {
+      if (target != "" && tolower($3) == tolower(target)) {
+        print $3
+        exit
+      }
+      if (fallback == "") {
+        fallback = $3
+      }
+    }
+    END {
+      if (target == "" && fallback != "") {
+        print fallback
+      }
+    }
+  '
+}
+
+authorize_zerotier_member() {
+  local node_id network_id api_url payload response_file http_code
+
+  if [[ -z "$ZEROTIER_API_TOKEN" ]]; then
+    return 1
+  fi
+
+  node_id="$(get_zerotier_node_id)"
+  network_id="$(get_joined_network_id)"
+
+  if [[ -z "$node_id" || -z "$network_id" ]]; then
+    echo "ZeroTier API token provided, but node ID or network ID could not be detected."
+    return 1
+  fi
+
+  api_url="https://api.zerotier.com/api/v1/network/${network_id}/member/${node_id}"
+  payload='{"config":{"authorized":true}}'
+  response_file="$(mktemp)"
+
+  echo "== Attempting ZeroTier Central auto-authorization =="
+  echo "Network ID: $network_id"
+  echo "Member ID:  $node_id"
+
+  http_code="$(curl -sS -o "$response_file" -w '%{http_code}' -X POST \
+    -H "Authorization: token ${ZEROTIER_API_TOKEN}" \
+    -H 'Content-Type: application/json' \
+    --data "$payload" \
+    "$api_url" || true)"
+
+  if [[ "$http_code" =~ ^2[0-9][0-9]$ ]]; then
+    echo "ZeroTier Central authorization request succeeded (HTTP ${http_code})."
+    rm -f "$response_file"
+    return 0
+  fi
+
+  echo "ZeroTier Central authorization request failed (HTTP ${http_code:-unknown})."
+  if [[ -s "$response_file" ]]; then
+    cat "$response_file"
+    echo ""
+  fi
+  rm -f "$response_file"
   return 1
 }
 
@@ -226,13 +323,19 @@ generate_self_signed_cert() {
 }
 
 show_zerotier_status
+load_zerotier_api_token
 
 if [[ -n "$ZT_IP" && -z "$ZT_IFACE" ]]; then
   find_zerotier_interface_for_ip || true
 fi
 
 if [[ -z "$ZT_IP" || -z "$ZT_IFACE" ]]; then
-  attempt=1
+  if authorize_zerotier_member; then
+    attempt=$((ZT_DETECT_RETRIES + 1))
+  else
+    attempt=1
+  fi
+
   if [[ -n "$ZT_ADDRESS_TIMEOUT" ]]; then
     zt_address_deadline=$((SECONDS + ZT_ADDRESS_TIMEOUT))
   else
