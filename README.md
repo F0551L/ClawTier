@@ -21,6 +21,21 @@ sudo nano /root/zerotier-central.token
 sudo bash clawtier.sh -ef /root/clawtier-bootstrap.env -y -n YOUR_ZEROTIER_NETWORK_ID -ocd
 ```
 
+Suggested `/root/clawtier-bootstrap.env` contents:
+
+```bash
+ZT_NETWORK_ID=YOUR_ZEROTIER_NETWORK_ID
+ADMIN_USER=ocadmin
+ZT_ADDRESS_TIMEOUT=300
+ZEROTIER_API_TOKEN_FILE=/root/zerotier-central.token
+```
+
+Suggested `/root/zerotier-central.token` contents (single line):
+
+```text
+YOUR_ZEROTIER_CENTRAL_API_TOKEN
+```
+
 If [ZeroTier Central](https://my.zerotier.com/) has not assigned the VPS an address yet, authorize the printed node ID, then rerun the proxy step:
 
 ```bash
