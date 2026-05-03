@@ -22,6 +22,8 @@ UPDATE_SCRIPTS_ONLY=false
 UPDATE_COMPONENTS=""
 UPDATE_SOURCE="${UPDATE_SOURCE:-}"
 UPDATE_REF="${UPDATE_REF:-}"
+RESET_STEP="${RESET_STEP:-}"
+FORCE_RESET=false
 ENV_FILE="${ENV_FILE:-}"
 PASSTHROUGH_ARGS=()
 
@@ -39,9 +41,10 @@ Options:
                               Use comma-delimited values, e.g. oc,zt.
   -s, -source, --update-source URL
                               Override Git source for script updates.
-  -r, -ref, --update-ref REF  Override Git ref for script updates. Default: current branch.
-  -ef, --env-file FILE
-                              Load bootstrap environment values from FILE.
+  -ref, --update-ref REF       Override Git ref for script updates. Default: current branch.
+  -r, --reset STEP             Reset/reinstall from STEP with cascade handling.
+  --force                      Force reset without y/n prompt (used with --reset).
+  -ef, --env-file FILE         Load bootstrap environment values from FILE.
   -y, --non-interactive       Never prompt; fail or skip when input is missing.
   --wait-zt-address           Wait for ZeroTier address assignment before proxy setup. Default.
   --no-wait-zt-address        Skip proxy setup if no ZeroTier address is assigned yet.
@@ -93,6 +96,7 @@ Examples:
   sudo bash clawtier.sh -f ad
   sudo bash clawtier.sh -uc all
   sudo bash clawtier.sh -uc c,oc,zt
+  sudo bash clawtier.sh -r zt --force
 EOF
 }
 
@@ -257,9 +261,10 @@ ensure_zerotier_connected_for_resume() {
 
 run_script() {
   local script_path="$1"
+  shift || true
 
   if [[ -f "$script_path" ]]; then
-    bash "$script_path"
+    bash "$script_path" "$@"
   else
     echo "Required script not found: $script_path"
     exit 1
@@ -466,13 +471,29 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
-    -r|-ref|--update-ref)
+    -ref|--update-ref)
       UPDATE_REF="${2:-}"
       if [[ -z "$UPDATE_REF" ]]; then
         echo "$1 requires a value."
         exit 1
       fi
       shift 2
+      ;;
+    -r|--reset)
+      RESET_STEP="${2:-}"
+      if [[ -z "$RESET_STEP" ]]; then
+        echo "--reset requires a step name."
+        exit 1
+      fi
+      PASSTHROUGH_ARGS+=("$1" "$2")
+      step_number "$RESET_STEP" >/dev/null
+      shift 2
+      ;;
+    --force)
+      FORCE_RESET=true
+      NONINTERACTIVE=true
+      PASSTHROUGH_ARGS+=("$1")
+      shift
       ;;
     --env-file|-ef)
       ENV_FILE="${2:-}"
@@ -601,6 +622,16 @@ if [[ -n "$UPDATE_COMPONENTS" ]]; then
   run_component_updates "$UPDATE_COMPONENTS"
 fi
 
+if [[ -n "$RESET_STEP" ]]; then
+  echo "== Reset/reinstall management =="
+  if $FORCE_RESET || is_true "$NONINTERACTIVE"; then
+    run_script "scripts/reset-reinstall.sh" --reset "$RESET_STEP" --force
+  else
+    run_script "scripts/reset-reinstall.sh" --reset "$RESET_STEP"
+  fi
+  exit 0
+fi
+
 echo "== Bootstrap start =="
 echo "Starting from step: $START_STEP"
 
@@ -627,10 +658,8 @@ if should_run base; then
     jq \
     unattended-upgrades
 
-  echo "== Allowing SSH and ZeroTier through UFW =="
+  echo "== Allowing SSH through UFW =="
   ufw allow 22/tcp
-  ufw allow 9993/udp
-  #ufw allow 9993/tcp     # disabled for now
   ufw --force enable
 fi
 
