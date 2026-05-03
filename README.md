@@ -14,7 +14,11 @@ From a fresh Ubuntu VPS:
 sudo apt update && sudo apt install -y git
 git clone https://github.com/F0551L/ClawTier.git
 cd ClawTier
-sudo bash clawtier.sh -y -n YOUR_ZEROTIER_NETWORK_ID -ocd -sad
+sudo install -m 600 -o root -g root /dev/null /root/clawtier-bootstrap.env
+sudo install -m 600 -o root -g root /dev/null /root/zerotier-central.token
+sudo nano /root/clawtier-bootstrap.env
+sudo nano /root/zerotier-central.token
+sudo bash clawtier.sh -ef /root/clawtier-bootstrap.env -y -n YOUR_ZEROTIER_NETWORK_ID -ocd
 ```
 
 If [ZeroTier Central](https://my.zerotier.com/) has not assigned the VPS an address yet, authorize the printed node ID, then rerun the proxy step:
@@ -134,6 +138,8 @@ sudo bash clawtier.sh -y -n YOUR_ZEROTIER_NETWORK_ID -au openclaw -ocd -sad
 
 `-ocd` / `-ud` / `--openclaw-defaults` / `--use-defaults` runs OpenClaw Docker setup with opinionated local defaults. It skips the interactive onboarding wizard, lets the Docker setup generate or reuse the gateway token, and leaves provider/account configuration for later.
 
+If `ZEROTIER_API_TOKEN_FILE` (preferred) or `ZEROTIER_API_TOKEN` is set, the proxy step calls the ZeroTier Central API (`POST /api/v1/network/{networkID}/member/{memberID}` with `{"config":{"authorized":true}}`) so fresh joins can be auto-authorized before address detection retries continue. `ZEROTIER_API_TOKEN_FILE` must be root-owned and not group/other writable.
+
 `-sad` skips the interactive Control UI device approval step. Run it later after opening the printed tokenized URL in the browser/profile you want to approve:
 
 ```bash
@@ -147,7 +153,7 @@ To keep repeat rebuild inputs in one place, use a root-owned env file:
 ```bash
 sudo install -m 600 -o root -g root /dev/null /root/clawtier-bootstrap.env
 sudo nano /root/clawtier-bootstrap.env
-sudo bash clawtier.sh --env-file /root/clawtier-bootstrap.env -y -ocd -sad
+sudo bash clawtier.sh -ef /root/clawtier-bootstrap.env -y -ocd -sad
 ```
 
 Example env file:
@@ -156,6 +162,7 @@ Example env file:
 ZT_NETWORK_ID=YOUR_ZEROTIER_NETWORK_ID
 ADMIN_USER=ocadmin
 ZT_ADDRESS_TIMEOUT=300
+ZEROTIER_API_TOKEN_FILE=/root/zerotier-central.token
 GATEWAY_TOKEN=optional-existing-token
 ```
 
@@ -238,7 +245,7 @@ Useful non-interactive examples:
 ```bash
 sudo bash clawtier.sh -y -n YOUR_ZEROTIER_NETWORK_ID -ocd
 sudo bash clawtier.sh -y -n YOUR_ZEROTIER_NETWORK_ID -ud
-sudo bash clawtier.sh -y -n YOUR_ZEROTIER_NETWORK_ID -ocd -sad
+sudo bash clawtier.sh -ef /root/clawtier-bootstrap.env -y -n YOUR_ZEROTIER_NETWORK_ID -ocd
 sudo bash clawtier.sh -y -n YOUR_ZEROTIER_NETWORK_ID -ocd --no-wait-zt-address -sad
 ```
 

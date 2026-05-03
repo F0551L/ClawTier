@@ -40,7 +40,8 @@ Options:
   -s, -source, --update-source URL
                               Override Git source for script updates.
   -r, -ref, --update-ref REF  Override Git ref for script updates. Default: current branch.
-  --env-file FILE             Load bootstrap environment values from FILE.
+  -ef, --env-file FILE
+                              Load bootstrap environment values from FILE.
   -y, --non-interactive       Never prompt; fail or skip when input is missing.
   --wait-zt-address           Wait for ZeroTier address assignment before proxy setup. Default.
   --no-wait-zt-address        Skip proxy setup if no ZeroTier address is assigned yet.
@@ -69,6 +70,8 @@ Environment:
   WAIT_ZT_ADDRESS             Set false to skip proxy setup when no ZeroTier address is assigned.
   ZT_ADDRESS_TIMEOUT          Maximum time to wait for ZeroTier address assignment.
   ZT_DETECT_INTERVAL          Seconds between ZeroTier address detection attempts.
+  ZEROTIER_API_TOKEN          ZeroTier Central API token for automatic node authorization.
+  ZEROTIER_API_TOKEN_FILE     Root-owned file containing ZeroTier Central API token.
   ENV_FILE                    Environment file to load before setup.
   UPDATE_SOURCE               Git URL/path to fetch when updating scripts.
   UPDATE_REF                  Git ref to fetch when updating scripts.
@@ -471,10 +474,10 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
-    --env-file)
+    --env-file|-ef)
       ENV_FILE="${2:-}"
       if [[ -z "$ENV_FILE" ]]; then
-        echo "--env-file requires a value."
+        echo "$1 requires a value."
         exit 1
       fi
       PASSTHROUGH_ARGS+=("$1" "$2")
@@ -580,6 +583,9 @@ export NONINTERACTIVE
 export WAIT_ZT_ADDRESS
 export ZT_ADDRESS_TIMEOUT
 export ZT_DETECT_INTERVAL
+export ZT_NETWORK_ID
+export ZEROTIER_API_TOKEN
+export ZEROTIER_API_TOKEN_FILE
 
 if [[ -z "$ENV_FILE" && -n "${BOOTSTRAP_ENV_FILE:-}" ]]; then
   ENV_FILE="$BOOTSTRAP_ENV_FILE"
