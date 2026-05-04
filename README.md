@@ -308,6 +308,7 @@ Handled by `clawtier.sh`:
 
 * System update/upgrade
 * Base package install (`curl`, `git`, `ufw`, `fail2ban`, `openssl`, `jq`)
+* Fail2ban SSH jail baseline tuned to slow brute-force attempts without banning too aggressively on occasional typos
 * Firewall configuration
 * Admin user creation
 * ZeroTier install and required network join
@@ -452,6 +453,7 @@ accept;
 ### Service hardening
 
 * `fail2ban` is installed and enabled when available.
+* Baseline SSH jail defaults are written to `/etc/fail2ban/jail.d/clawtier-sshd.local`: `maxretry=6`, `findtime=10m`, `bantime=1h`, with incremental bans enabled for repeated offenders.
 * `unattended-upgrades` is installed as part of baseline packages.
 * OpenClaw auth and remote token values are synchronized by the proxy setup script.
 
