@@ -127,6 +127,26 @@ is_true() {
   [[ "${1:-}" =~ ^([Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss]|[Yy])$ ]]
 }
 
+configure_fail2ban_sshd_jail() {
+  local jail_dir="/etc/fail2ban/jail.d"
+  local jail_file="${jail_dir}/clawtier-sshd.local"
+
+  mkdir -p "$jail_dir"
+  cat >"$jail_file" <<'EOF'
+[sshd]
+enabled = true
+port = ssh
+backend = systemd
+maxretry = 6
+findtime = 10m
+bantime = 1h
+bantime.increment = true
+bantime.rndtime = 5m
+EOF
+
+  echo "Configured fail2ban SSH jail: $jail_file"
+}
+
 load_env_file() {
   local env_file="$1"
   local perms
@@ -661,6 +681,9 @@ if should_run base; then
   echo "== Allowing SSH through UFW =="
   ufw allow 22/tcp
   ufw --force enable
+
+  echo "== Configuring fail2ban SSH protections =="
+  configure_fail2ban_sshd_jail
 fi
 
 if should_run admin-user; then
@@ -678,6 +701,7 @@ if should_run zerotier; then
 
   if systemctl list-unit-files fail2ban.service >/dev/null 2>&1; then
     systemctl enable --now fail2ban
+    systemctl restart fail2ban
   else
     echo "fail2ban service not found; skipping service enable."
   fi
