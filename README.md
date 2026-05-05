@@ -258,7 +258,7 @@ Available steps:
 * `au`, `admin-user` — create a sudo-capable admin user, default `ocadmin`
 * `zt`, `zerotier` — install ZeroTier and join the requested network, or reuse an existing joined network
 * `d`, `docker` — install Docker, or start/enable an existing Docker service
-* `oc`, `openclaw` — install OpenClaw, or skip when an existing install is detected
+* `oc`, `openclaw` — install ClawDock then OpenClaw, or skip when an existing install is detected
 * `p`, `proxy` — expose OpenClaw to ZeroTier peers through Caddy
 * `ad`, `approve-device` — interactively approve a pending Control UI browser device
 * `rc`, `reboot-check` — check whether the VPS needs a reboot
@@ -371,7 +371,7 @@ This separation allows:
 * changing app stack without touching base config
 * easier rebuilds and experimentation
 
-[OpenClaw](https://github.com/openclaw/openclaw) is installed using its official Docker-based setup script, which manages its own containers and configuration.
+[OpenClaw](https://github.com/openclaw/openclaw) is installed using its official Docker-based setup script, which manages its own containers and configuration. ClawDock helpers are installed from the checked-out OpenClaw repository using the canonical `scripts/clawdock/clawdock-helpers.sh` path (with a compatibility fallback), immediately before running OpenClaw's setup script.
 By default, `scripts/install-openclaw.sh` checks out GitHub's latest OpenClaw release tag instead of repository HEAD. To pin or test a different ref:
 
 ```bash
