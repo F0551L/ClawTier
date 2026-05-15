@@ -42,7 +42,7 @@ sudo install -m 600 -o root -g root /dev/null /root/clawtier-bootstrap.env
 sudo install -m 600 -o root -g root /dev/null /root/zerotier-central.token
 sudo nano /root/clawtier-bootstrap.env
 sudo nano /root/zerotier-central.token
-sudo bash clawtier.sh -ef /root/clawtier-bootstrap.env -y -n YOUR_ZEROTIER_NETWORK_ID -ocd
+sudo bash clawtier.sh -ef /root/clawtier-bootstrap.env -y -n YOUR_ZEROTIER_NETWORK_ID --channel stable -ocd
 ```
 
 Suggested `/root/clawtier-bootstrap.env` contents:
@@ -155,6 +155,17 @@ sudo clawtier -uc all
 sudo clawtier -uc c,oc,zt
 sudo clawtier --update-components caddy,openclaw,zerotier
 ```
+
+🧭 Channel selection controls component refs used during install/update:
+
+```bash
+sudo clawtier --channel stable -n YOUR_ZEROTIER_NETWORK_ID
+sudo clawtier --channel edge -uc openclaw
+```
+
+* `stable` (default): installs from pinned manifest refs in `scripts/component-manifest.env` (recommended for production VPS rebuilds).
+* `edge`: follows latest component refs (recommended for testing/validation).
+
 
 🧪 To update the scripts and stop before running any setup:
 
@@ -289,7 +300,7 @@ Useful non-interactive examples:
 ```bash
 sudo clawtier -y -n YOUR_ZEROTIER_NETWORK_ID -ocd
 sudo clawtier -y -n YOUR_ZEROTIER_NETWORK_ID -ud
-sudo clawtier -ef /root/clawtier-bootstrap.env -y -n YOUR_ZEROTIER_NETWORK_ID -ocd
+sudo clawtier -ef /root/clawtier-bootstrap.env -y -n YOUR_ZEROTIER_NETWORK_ID --channel stable -ocd
 sudo clawtier -y -n YOUR_ZEROTIER_NETWORK_ID -ocd --no-wait-zt-address -sad
 ```
 
@@ -383,7 +394,7 @@ This separation allows:
 * easier rebuilds and experimentation
 
 [OpenClaw](https://github.com/openclaw/openclaw) is installed using its official Docker-based setup script, which manages its own containers and configuration.
-By default, `scripts/install-openclaw.sh` checks out GitHub's latest OpenClaw release tag instead of repository HEAD. To pin or test a different ref:
+`clawtier.sh` channel mode sets OpenClaw refs automatically (`stable` => pinned release tag, `edge` => `main`). You can still override manually when needed:
 
 ```bash
 sudo OPENCLAW_REF=v2026.4.15 bash scripts/install-openclaw.sh
