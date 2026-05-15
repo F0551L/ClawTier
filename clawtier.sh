@@ -23,6 +23,8 @@ UPDATE_SCRIPTS_ONLY=false
 UPDATE_COMPONENTS=""
 UPDATE_SOURCE="${UPDATE_SOURCE:-}"
 UPDATE_REF="${UPDATE_REF:-}"
+CHANNEL="${CHANNEL:-stable}"
+COMPONENT_MANIFEST_FILE="${COMPONENT_MANIFEST_FILE:-$PWD/scripts/component-manifest.env}"
 RESET_STEP="${RESET_STEP:-}"
 FORCE=false
 REINSTALL_AFTER_RESET=false
@@ -60,6 +62,7 @@ Options:
   -s, -source, --update-source URL
                               Override Git source for script updates.
   -ref, --update-ref REF       Override Git ref for script updates. Default: current branch.
+  --channel CHANNEL            Install/update channel: stable (pinned refs) or edge (latest refs).
   -r, --reset STEP             Reset/reinstall from STEP or mode with cascade handling.
                               Modes: data/clawtier-data, full/all.
   --reinstall                  Continue bootstrap after --reset completes.
@@ -100,6 +103,7 @@ Environment:
   ENV_FILE                    Environment file to load before setup.
   UPDATE_SOURCE               Git URL/path to fetch when updating scripts.
   UPDATE_REF                  Git ref to fetch when updating scripts.
+  CHANNEL                     Component channel: stable (default) or edge.
   ADMIN_USER                  Admin sudo user to create.
   ADMIN_SSH_PUBLIC_KEY        SSH public key to install for the admin user.
   ADMIN_SSH_PUBLIC_KEY_FILE   File containing an SSH public key to install.
@@ -610,6 +614,40 @@ run_component_updates() {
   fi
 }
 
+
+load_component_manifest() {
+  if [[ -f "$COMPONENT_MANIFEST_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$COMPONENT_MANIFEST_FILE"
+  fi
+}
+
+validate_channel() {
+  case "${CHANNEL,,}" in
+    stable|edge)
+      CHANNEL="${CHANNEL,,}"
+      ;;
+    *)
+      echo "Invalid --channel value: $CHANNEL"
+      echo "Supported channels: stable, edge"
+      exit 1
+      ;;
+  esac
+}
+
+set_component_channel_refs() {
+  case "$CHANNEL" in
+    stable)
+      export OPENCLAW_REF="${OPENCLAW_REF:-${OPENCLAW_REF_STABLE:-}}"
+      export CADDY_IMAGE="${CADDY_IMAGE:-${CADDY_IMAGE_STABLE:-caddy:2-alpine}}"
+      ;;
+    edge)
+      export OPENCLAW_REF="${OPENCLAW_REF:-${OPENCLAW_REF_EDGE:-main}}"
+      export CADDY_IMAGE="${CADDY_IMAGE:-${CADDY_IMAGE_EDGE:-caddy:2-alpine}}"
+      ;;
+  esac
+}
+
 lock_bootstrap_user() {
   local bootstrap_user="${SUDO_USER:-}"
 
@@ -681,6 +719,15 @@ while [[ $# -gt 0 ]]; do
         echo "$1 requires a value."
         exit 1
       fi
+      shift 2
+      ;;
+    --channel)
+      CHANNEL="${2:-}"
+      if [[ -z "$CHANNEL" ]]; then
+        echo "--channel requires a value."
+        exit 1
+      fi
+      PASSTHROUGH_ARGS+=("$1" "$2")
       shift 2
       ;;
     -ref|--update-ref)
@@ -841,6 +888,9 @@ if [[ -z "$ENV_FILE" && -n "${BOOTSTRAP_ENV_FILE:-}" ]]; then
 fi
 
 load_env_file "$ENV_FILE"
+load_component_manifest
+validate_channel
+set_component_channel_refs
 
 if $UPDATE_SCRIPTS; then
   update_scripts
@@ -872,6 +922,7 @@ fi
 
 echo "== Bootstrap start =="
 echo "Starting from step: $START_STEP"
+echo "Channel: $CHANNEL"
 
 if should_run base; then
   echo "== Updating system =="

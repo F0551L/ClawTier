@@ -23,6 +23,7 @@ ZT_NETWORK_ID="${ZT_NETWORK_ID:-}"
 ZEROTIER_API_TOKEN="${ZEROTIER_API_TOKEN:-}"
 ZEROTIER_API_TOKEN_FILE="${ZEROTIER_API_TOKEN_FILE:-}"
 attempt=1
+CADDY_IMAGE="${CADDY_IMAGE:-caddy:2-alpine}"
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run as root, e.g. sudo bash scripts/expose-openclaw-zerotier.sh"
@@ -443,6 +444,7 @@ if [[ -z "$ZT_IP" || -z "$ZT_IFACE" ]]; then
     attempt=$((ZT_DETECT_RETRIES + 1))
   else
     attempt=1
+CADDY_IMAGE="${CADDY_IMAGE:-caddy:2-alpine}"
   fi
 
   if [[ -n "$ZT_ADDRESS_TIMEOUT" ]]; then
@@ -567,7 +569,7 @@ After=docker.service zerotier-one.service
 Restart=unless-stopped
 RestartSec=5
 ExecStartPre=-/usr/bin/docker rm -f ${PROXY_NAME}
-ExecStart=/usr/bin/docker run --rm --name ${PROXY_NAME} --network host -v ${PROXY_DIR}:/etc/caddy:ro caddy:2-alpine caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+ExecStart=/usr/bin/docker run --rm --name ${PROXY_NAME} --network host -v ${PROXY_DIR}:/etc/caddy:ro ${CADDY_IMAGE} caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
 ExecStop=-/usr/bin/docker stop ${PROXY_NAME}
 
 [Install]
@@ -575,7 +577,7 @@ WantedBy=multi-user.target
 EOF
 
 echo "== Pulling Caddy image =="
-docker pull caddy:2-alpine
+docker pull "$CADDY_IMAGE"
 
 echo "== Enabling reverse proxy service =="
 systemctl daemon-reload
