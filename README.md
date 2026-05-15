@@ -115,6 +115,12 @@ cd ClawTier
 sudo bash clawtier.sh -n YOUR_ZEROTIER_NETWORK_ID
 ```
 
+On first run, ClawTier automatically installs a global `clawtier` command at `/usr/local/bin/clawtier`, so later runs can use the short form:
+
+```bash
+sudo clawtier -n YOUR_ZEROTIER_NETWORK_ID
+```
+
 During bootstrap you may be prompted for:
 
 * ZeroTier Network ID, if `-n` was not provided

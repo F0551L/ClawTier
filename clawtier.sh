@@ -104,6 +104,30 @@ Examples:
 EOF
 }
 
+install_cli_wrapper() {
+  local script_path wrapper_path
+  script_path="$(realpath "$0")"
+  wrapper_path="/usr/local/bin/clawtier"
+
+  install -d -m 755 /usr/local/bin
+  cat > "${wrapper_path}" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+exec bash "${script_path}" "\$@"
+EOF
+  chmod 755 "${wrapper_path}"
+  echo "Installed ${wrapper_path} -> ${script_path}"
+  echo "You can now run: sudo clawtier [options]"
+}
+
+uninstall_cli_wrapper() {
+  local wrapper_path="/usr/local/bin/clawtier"
+  if [[ -e "${wrapper_path}" ]]; then
+    rm -f "${wrapper_path}"
+    echo "Removed ${wrapper_path}"
+  fi
+}
+
 step_number() {
   case "$1" in
     b|base|bootstrap) echo 1 ;;
@@ -684,6 +708,8 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+install_cli_wrapper
+
 if $REINSTALL_AFTER_RESET && [[ -z "$RESET_STEP" ]]; then
   echo "--reinstall requires --reset STEP."
   exit 1
@@ -722,6 +748,9 @@ if [[ -n "$RESET_STEP" ]]; then
   fi
 
   if ! $REINSTALL_AFTER_RESET; then
+    if [[ "$(normalize_reset_target "$RESET_STEP")" == "full" ]]; then
+      uninstall_cli_wrapper
+    fi
     exit 0
   fi
 
