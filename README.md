@@ -165,7 +165,7 @@ sudo clawtier -uso
 Check the packaged script version:
 
 ```bash
-sudo bash clawtier.sh --version
+sudo clawtier --version
 ```
 
 ---
