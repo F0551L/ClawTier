@@ -148,6 +148,8 @@ Bootstrap creates a sudo-capable `ocadmin` user by default. Docker, OpenClaw, an
 sudo clawtier -u -n YOUR_ZEROTIER_NETWORK_ID
 ```
 
+Before running `-u`, review the [Upgrade Policy](docs/upgrade-policy.md) for backup and rollback expectations.
+
 ⬆️ To update installed component versions (currently Caddy proxy, OpenClaw, and ZeroTier):
 
 ```bash
@@ -155,6 +157,8 @@ sudo clawtier -uc all
 sudo clawtier -uc c,oc,zt
 sudo clawtier --update-components caddy,openclaw,zerotier
 ```
+
+Before running `-uc` or component-specific updates, review the [Upgrade Policy](docs/upgrade-policy.md) for supported paths, manual-step triggers, and rollback guidance.
 
 🧭 Channel selection controls component refs used during install/update:
 
@@ -165,7 +169,6 @@ sudo clawtier --channel edge -uc openclaw
 
 * `stable` (default): installs from pinned manifest refs in `scripts/component-manifest.env` (recommended for production VPS rebuilds).
 * `edge`: follows latest component refs (recommended for testing/validation).
-
 
 🧪 To update the scripts and stop before running any setup:
 
