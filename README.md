@@ -397,11 +397,12 @@ This separation allows:
 * easier rebuilds and experimentation
 
 [OpenClaw](https://github.com/openclaw/openclaw) is installed using its official Docker-based setup script, which manages its own containers and configuration.
+The installer now blocks unstable refs by default (for example `beta`, `rc`, `alpha`, and `preview` tags).
 `clawtier.sh` channel mode sets OpenClaw refs automatically (`stable` => pinned release tag, `edge` => `main`). You can still override manually when needed:
 
 ```bash
 sudo OPENCLAW_REF=v2026.4.15 bash scripts/install-openclaw.sh
-sudo OPENCLAW_REF=main bash scripts/install-openclaw.sh
+sudo OPENCLAW_REF=main OPENCLAW_ALLOW_UNSTABLE=true bash scripts/install-openclaw.sh
 ```
 
 ### Stage 3 — ZeroTier-only OpenClaw access

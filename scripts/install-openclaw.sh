@@ -8,6 +8,7 @@ OPENCLAW_REF="${OPENCLAW_REF:-}"
 OPENCLAW_SETUP_USE_DEFAULTS="${OPENCLAW_SETUP_USE_DEFAULTS:-false}"
 OPENCLAW_SKIP_ONBOARDING="${OPENCLAW_SKIP_ONBOARDING:-}"
 OPENCLAW_FORCE_INSTALL="${OPENCLAW_FORCE_INSTALL:-false}"
+OPENCLAW_ALLOW_UNSTABLE="${OPENCLAW_ALLOW_UNSTABLE:-false}"
 
 echo "== Installing OpenClaw via official Docker setup =="
 
@@ -48,6 +49,12 @@ if ! is_true "$OPENCLAW_FORCE_INSTALL" && openclaw_install_detected; then
   echo "Run with OPENCLAW_FORCE_INSTALL=true to rerun the official Docker setup."
   exit 0
 fi
+
+
+ref_is_unstable() {
+  local ref="${1,,}"
+  [[ "$ref" =~ (alpha|beta|rc|pre|preview) ]]
+}
 
 resolve_openclaw_ref() {
   local latest_url latest_ref
@@ -97,6 +104,12 @@ prepare_openclaw_defaults() {
 }
 
 OPENCLAW_RESOLVED_REF="$(resolve_openclaw_ref)"
+
+if ! is_true "$OPENCLAW_ALLOW_UNSTABLE" && ref_is_unstable "$OPENCLAW_RESOLVED_REF"; then
+  echo "Refusing unstable OpenClaw ref by default: $OPENCLAW_RESOLVED_REF" >&2
+  echo "Set OPENCLAW_ALLOW_UNSTABLE=true to allow prerelease refs." >&2
+  exit 1
+fi
 
 if [[ -d "$OPENCLAW_DIR" && ! -d "$OPENCLAW_DIR/.git" ]]; then
   echo "OpenClaw directory already exists but is not a Git checkout: $OPENCLAW_DIR"
