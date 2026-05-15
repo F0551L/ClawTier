@@ -465,22 +465,49 @@ resolve_zerotier_network_id_for_api() {
 
 default_zerotier_flow_rules_source() {
   cat <<'EOF'
-# Allow SSH
-accept
-  ipprotocol tcp
+tag admin
+  id 1
+  enum 1 admin;
+
+tag openclaw_gateway
+  id 2
+  enum 1 openclaw_gateway;
+
+cap openclaw_web
+  id 1;
+
+# Allow ARP and ICMP echo only when at least one side is tagged admin.
+accept ethertype arp
+  and tor admin 1;
+accept ipprotocol icmp
+  and (icmp 8 or icmp 0)
+  and tor admin 1;
+
+# Permit SSH to any tagged/untagged member.
+accept ipprotocol tcp
   and dport 22;
 
-# Allow HTTP/HTTPS
-accept
-  ipprotocol tcp
-  and dport 80 or dport 443;
+# Permit HTTP/HTTPS only when both peers are tagged openclaw_gateway.
+accept ipprotocol tcp
+  and (dport 80 or dport 443)
+  and tor openclaw_gateway 1;
 
-# Block new TCP connections that are not explicitly allowed
-break
-  chr tcp_syn
+# Permit capability-scoped web traffic only between gateway-tagged peers.
+accept ipprotocol tcp
+  and (dport 80 or dport 443)
+  and tor openclaw_gateway 1
+  and tcap openclaw_web 1;
+
+# Block new inbound TCP connection attempts sourced from gateway-tagged members.
+break chr tcp_syn
+  and not chr tcp_ack
+  and tseq openclaw_gateway 1;
+
+# Block any other new TCP connections.
+break chr tcp_syn
   and not chr tcp_ack;
 
-# Allow remaining traffic (reply packets, ICMP, other required protocols)
+# Allow established/reply traffic and other control-plane protocols.
 accept;
 EOF
 }
