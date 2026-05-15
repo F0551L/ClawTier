@@ -162,6 +162,12 @@ sudo clawtier --update-components caddy,openclaw,zerotier
 sudo clawtier -uso
 ```
 
+Check the packaged script version:
+
+```bash
+sudo bash clawtier.sh --version
+```
+
 ---
 
 ### 4️⃣ Optional: run non-interactively

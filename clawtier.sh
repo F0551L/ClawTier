@@ -29,6 +29,22 @@ REINSTALL_AFTER_RESET=false
 ENV_FILE="${ENV_FILE:-}"
 PASSTHROUGH_ARGS=()
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+version_file="${script_dir}/VERSION"
+
+get_clawtier_version() {
+  if [[ -f "$version_file" ]]; then
+    sed -n '1p' "$version_file"
+    return 0
+  fi
+
+  if command -v git >/dev/null 2>&1 && git -C "$script_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$script_dir" describe --tags --always 2>/dev/null && return 0
+  fi
+
+  echo "unknown"
+}
+
 usage() {
   cat <<EOF
 Usage: sudo clawtier [options]
@@ -70,6 +86,7 @@ Options:
                               Run OpenClaw setup with opinionated local defaults.
   -sp, --skip-proxy           Skip ZeroTier reverse proxy setup.
   -sad, --skip-approve-device Skip interactive OpenClaw device approval.
+  -V, --version               Print ClawTier version and exit.
   -h, --help                  Show this help.
 
 Environment:
@@ -103,6 +120,7 @@ Examples:
   sudo clawtier -uc c,oc,zt
   sudo clawtier -r zt --force
   sudo clawtier --reset full --reinstall --force -n 0123456789abcdef -ocd
+  sudo clawtier --version
 EOF
 }
 
@@ -779,6 +797,10 @@ while [[ $# -gt 0 ]]; do
       APPROVE_OPENCLAW_DEVICE=false
       PASSTHROUGH_ARGS+=("$1")
       shift
+      ;;
+    -V|--version)
+      echo "$(get_clawtier_version)"
+      exit 0
       ;;
     -h|--help)
       usage
