@@ -556,11 +556,14 @@ Future option:
 
 ## Contributing
 
-* See `AGENTS.md` for the active agent workflow and sticky branch conventions
-* Prefer **Squash and merge** for PRs
-* Use stacked PRs to merge implementation branches back into their feature branch
-* Merge the completed feature branch into `main`
-* Avoid merge commits
+* See `CONTRIBUTING.md` for contribution and changelog-entry requirements.
+* Every user-visible script behavior change must include a `CHANGELOG.md` entry before tagging a release.
+* Use `.github/release-template.md` to standardize release notes from `CHANGELOG.md`.
+* See `AGENTS.md` for the active agent workflow and sticky branch conventions.
+* Prefer **Squash and merge** for PRs.
+* Use stacked PRs to merge implementation branches back into their feature branch.
+* Merge the completed feature branch into `main`.
+* Avoid merge commits.
 
 ---
 
