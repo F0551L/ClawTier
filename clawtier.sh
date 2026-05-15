@@ -31,7 +31,7 @@ PASSTHROUGH_ARGS=()
 
 usage() {
   cat <<EOF
-Usage: sudo bash clawtier.sh [options]
+Usage: sudo clawtier [options]
 
 Options:
   -n, --zerotier-network-id ID[,ID...]
@@ -92,18 +92,42 @@ Environment:
                               Set true to lock the original sudo user after admin user setup.
 
 Examples:
-  sudo bash clawtier.sh -u -n 0123456789abcdef
-  sudo bash clawtier.sh -y -n 0123456789abcdef -ocd -sad
-  sudo bash clawtier.sh -n 0123456789abcdef -au openclaw
-  sudo bash clawtier.sh -n 0123456789abcdef -f d
-  sudo bash clawtier.sh -n 0123456789abcdef -f p
-  sudo bash clawtier.sh -n 0123456789abcdef -ocd -sad
-  sudo bash clawtier.sh -f ad
-  sudo bash clawtier.sh -uc all
-  sudo bash clawtier.sh -uc c,oc,zt
-  sudo bash clawtier.sh -r zt --force
-  sudo bash clawtier.sh --reset full --reinstall --force -n 0123456789abcdef -ocd
+  sudo clawtier -u -n 0123456789abcdef
+  sudo clawtier -y -n 0123456789abcdef -ocd -sad
+  sudo clawtier -n 0123456789abcdef -au openclaw
+  sudo clawtier -n 0123456789abcdef -f d
+  sudo clawtier -n 0123456789abcdef -f p
+  sudo clawtier -n 0123456789abcdef -ocd -sad
+  sudo clawtier -f ad
+  sudo clawtier -uc all
+  sudo clawtier -uc c,oc,zt
+  sudo clawtier -r zt --force
+  sudo clawtier --reset full --reinstall --force -n 0123456789abcdef -ocd
 EOF
+}
+
+install_cli_wrapper() {
+  local script_path wrapper_path
+  script_path="$(realpath "$0")"
+  wrapper_path="/usr/local/bin/clawtier"
+
+  install -d -m 755 /usr/local/bin
+  cat > "${wrapper_path}" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+exec bash "${script_path}" "\$@"
+EOF
+  chmod 755 "${wrapper_path}"
+  echo "Installed ${wrapper_path} -> ${script_path}"
+  echo "You can now run: sudo clawtier [options]"
+}
+
+uninstall_cli_wrapper() {
+  local wrapper_path="/usr/local/bin/clawtier"
+  if [[ -e "${wrapper_path}" ]]; then
+    rm -f "${wrapper_path}"
+    echo "Removed ${wrapper_path}"
+  fi
 }
 
 step_number() {
@@ -388,7 +412,7 @@ ensure_zerotier_connected_for_resume() {
 
   if ! command -v zerotier-cli >/dev/null 2>&1; then
     echo "ZeroTier is not installed. Resume from the zerotier step instead:"
-    echo "  sudo bash clawtier.sh -n YOUR_ZEROTIER_NETWORK_ID -f zt"
+    echo "  sudo clawtier -n YOUR_ZEROTIER_NETWORK_ID -f zt"
     exit 1
   fi
 
@@ -769,9 +793,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $EUID -ne 0 ]]; then
-  echo "Please run as root, e.g. sudo bash clawtier.sh"
+  echo "Please run as root, e.g. sudo clawtier"
   exit 1
 fi
+
+install_cli_wrapper
 
 if $REINSTALL_AFTER_RESET && [[ -z "$RESET_STEP" ]]; then
   echo "--reinstall requires --reset STEP."
@@ -811,6 +837,9 @@ if [[ -n "$RESET_STEP" ]]; then
   fi
 
   if ! $REINSTALL_AFTER_RESET; then
+    if [[ "$(normalize_reset_target "$RESET_STEP")" == "full" ]]; then
+      uninstall_cli_wrapper
+    fi
     exit 0
   fi
 
