@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  bash-syntax:
+    name: Bash syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell syntax
+        run: |
+          bash -n clawtier.sh
+          bash -n scripts/*.sh
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck
+        run: |
+          shellcheck clawtier.sh scripts/*.sh
+
+  shfmt:
+    name: shfmt (optional)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shfmt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shfmt
+      - name: Check formatting
+        run: |
+          shfmt -d clawtier.sh scripts/*.sh
+
+  release-guard:
+    name: Release guard
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tag, VERSION, and CHANGELOG
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+          SEMVER_REGEX='^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+
+          if [[ ! -f VERSION ]]; then
+            echo "VERSION file is missing"
+            exit 1
+          fi
+
+          if [[ ! -f CHANGELOG.md ]]; then
+            echo "CHANGELOG.md is missing"
+            exit 1
+          fi
+
+          VERSION_VALUE="$(tr -d '[:space:]' < VERSION)"
+
+          if [[ ! "$TAG" =~ $SEMVER_REGEX ]]; then
+            echo "Tag '$TAG' is not SemVer compliant"
+            exit 1
+          fi
+
+          if [[ "$VERSION_VALUE" != "$TAG" ]]; then
+            echo "VERSION ('$VERSION_VALUE') does not match tag ('$TAG')"
+            exit 1
+          fi
+
+          RELEASE_VERSION="${TAG#v}"
+          if ! grep -Eq "^##[[:space:]]*\[?v?${RELEASE_VERSION//./\\.}\]?([[:space:]]|-|$)" CHANGELOG.md; then
+            echo "CHANGELOG.md does not contain an entry for version '$RELEASE_VERSION'"
+            exit 1
+          fi
